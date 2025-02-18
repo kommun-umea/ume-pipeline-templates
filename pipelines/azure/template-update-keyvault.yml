@@ -1,0 +1,27 @@
+parameters:
+  environment: ""
+  serviceConnection: ""
+  resourceGroup: ""
+  keyVaultName: ""
+  personalAccessToken: ""
+
+jobs:
+  - job: UpdateKeyVaultJob
+    displayName: Update ${{ parameters.keyVaultName }}
+    pool:
+      vmImage: ubuntu-latest
+
+    steps:
+      - checkout: templates
+      - task: AzureCLI@2
+        displayName: Update Key Vault
+        inputs:
+          azureSubscription: ${{ parameters.serviceConnection }}
+          scriptType: pscore
+          scriptLocation: scriptPath
+          scriptPath: pipelines/azure/scripts/update-keyvault.ps1
+          arguments: >
+            -environment ${{ parameters.environment }}
+            -resourceGroup ${{ parameters.resourceGroup }}
+            -keyVaultName ${{ parameters.keyVaultName }}
+            -personalAccessToken ${{ parameters.personalAccessToken }}
