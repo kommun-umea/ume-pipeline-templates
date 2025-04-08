@@ -1,0 +1,16 @@
+parameters:
+  - name: path
+    type: string
+
+steps:
+  - powershell: |
+      $appOfflinePath = "${{ parameters.path }}/wwwroot/app_offline.htm"
+
+      if (Test-Path $appOfflinePath -PathType leaf) {
+        Write-Host "[Ume]: Removing app_offline.htm..."
+        Remove-Item $appOfflinePath -Force
+      } else {
+        Write-Host "[Ume]: Application is already enabled."
+      }
+    displayName: Enable application
+    failOnStderr: true

@@ -1,0 +1,64 @@
+parameters:
+  - name: hostUrl
+    type: string
+
+  - name: pingEndpoint
+    type: string
+
+  - name: pingType
+    type: string
+    default: Default
+    values:
+      - Default
+      - Cloud
+      - Internal
+      - External
+
+  - name: maxRetries
+    type: number
+    default: 3
+
+  - name: retryDelay
+    type: number
+    default: 5
+
+steps:
+  - powershell: |
+      $pingUrl = "${{ parameters.hostUrl}}${{ parameters.pingEndpoint }}"
+      Write-Host "[Ume]: Pinging $pingUrl..."
+      $maxRetries = ${{ parameters.maxRetries }}
+      $retryDelay = ${{ parameters.retryDelay }}
+      $success = $false
+
+      for ($i = 1; $i -le $maxRetries; $i++) {
+        try {
+          if ($i -ne 1) {
+            Write-Host "[Ume]: Retrying in $($retryDelay)s..."
+            Start-Sleep -Seconds $retryDelay
+          }
+
+          $response = Invoke-WebRequest -Uri $pingUrl -UseBasicParsing -TimeoutSec 10
+          if ($response.StatusDescription -eq 'OK') {
+            Write-Host "[Ume]: Ping successful!"
+            $success = $true
+            break
+          }
+        }
+        catch {
+          Write-Host "[Ume]: Ping failed on attempt #$i."
+          Write-Warning $_
+        }
+      }
+
+      if (-not $success) {
+        Write-Host "##vso[task.setvariable variable=PingFailed]true"
+        Write-Host "##vso[task.setvariable variable=${{ parameters.pingType }}PingFailed]true"
+        Write-Error "[Ume]: Ping failed after $maxRetries attempts."
+      }
+    displayName: Ping ${{ parameters.pingType}} ${{ parameters.pingEndpoint }}
+    failOnStderr: true
+    condition: |
+      and(
+        succeeded(),
+        ne(variables['${{ parameters.pingType }}PingFailed'], 'true')
+      )

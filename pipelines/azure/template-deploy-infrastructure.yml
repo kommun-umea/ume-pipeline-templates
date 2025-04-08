@@ -1,16 +1,23 @@
 parameters:
-  environment: ""
-  serviceConnection: ""
-  resourceGroup: ""
-  entrypointScriptPath: "iac/iac-entrypoint.ps1"
-  personalAccessToken: ""
+  - name: environment
+    type: string
+
+  - name: serviceConnection
+    type: string
+
+  - name: resourceGroup
+    type: string
+
+  - name: personalAccessToken
+    type: string
+
+  - name: entrypointScriptPath
+    type: string
+    default: iac/entrypoint.ps1
 
 jobs:
   - job: DeployInfrastructureJob
     displayName: Deploy ${{ parameters.resourceGroup }}
-    pool:
-      vmImage: "ubuntu-latest"
-
     steps:
       - checkout: self
         clean: true

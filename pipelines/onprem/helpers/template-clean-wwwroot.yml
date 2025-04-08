@@ -1,0 +1,49 @@
+parameters:
+  - name: path
+    type: string
+
+  - name: maxRetries
+    type: number
+    default: 3
+
+  - name: retryDelay
+    type: number
+    default: 5
+
+steps:
+  - powershell: |
+      Write-Host "[Ume]: Cleaning wwwroot..."
+      $wwwrootPath = "${{ parameters.path }}/wwwroot"
+      $maxRetries = ${{ parameters.maxRetries }}
+      $retryDelay = ${{ parameters.retryDelay }}
+      $success = $false
+
+      for ($i = 1; $i -le $maxRetries; $i++) {
+        try {
+          if ($i -ne 1) {
+            Write-Host "[Ume]: Retrying in $($retryDelay)s..."
+            Start-Sleep -Seconds $retryDelay
+          }
+
+          Remove-Item $wwwrootPath/* -Exclude 'runtimes','*.dll','*.pdb','app_offline.htm' -Recurse -Force
+          Remove-Item $wwwrootPath/* -Exclude 'app_offline.htm' -Recurse -Force
+
+          $currentItemCount = (Get-ChildItem $wwwrootPath -Exclude 'app_offline.htm').Count
+          if ($currentItemCount -ne 0) {
+            throw "[Ume]: wwwroot still contains $currentItemCount item(s) after cleanup"
+          }
+
+          $success = $true
+          break
+        }
+        catch {
+          Write-Host "[Ume]: Clean wwwroot failed on attempt #$i."
+          Write-Warning $_
+        }
+      }
+
+      if (-not $success) {
+        Write-Error "Clean wwwroot failed after $maxRetries attempts."
+      }
+    displayName: Clean wwwroot
+    failOnStderr: true

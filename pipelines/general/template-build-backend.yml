@@ -1,0 +1,92 @@
+parameters:
+  - name: projectFolderName
+    type: string
+
+  - name: entrypointProjectName
+    type: string
+
+  - name: projectParentFolderPath
+    type: string
+    default: src
+
+  - name: buildConfiguration
+    type: string
+    default: Release
+    values:
+      - Debug
+      - Release
+
+  - name: dotnetVersion
+    type: string
+    default: 8.0.x
+
+  - name: shouldTest
+    type: boolean
+    default: true
+
+  - name: shouldPublish
+    type: boolean
+    default: true
+
+steps:
+  - task: UseDotNet@2
+    displayName: Use .NET ${{ parameters.dotnetVersion }}
+    inputs:
+      packageType: sdk
+      version: ${{ parameters.dotnetVersion }}
+
+  - task: DotNetCoreCLI@2
+    displayName: Restore
+    inputs:
+      command: restore
+      projects: ${{ parameters.projectParentFolderPath }}/${{ parameters.projectFolderName }}/**/*.csproj
+      feedsToUse: config
+      nugetConfigPath: NuGet.Config
+      restoreDirectory: $(Pipeline.Workspace)/.nuget/packages
+      verbosityRestore: Minimal
+
+  - task: DotNetCoreCLI@2
+    displayName: Build
+    inputs:
+      command: build
+      projects: ${{ parameters.projectParentFolderPath }}/${{ parameters.projectFolderName }}/**/*.csproj
+      arguments: --no-restore --configuration ${{ parameters.buildConfiguration }}
+
+  - task: DotNetCoreCLI@2
+    displayName: Test
+    condition: |
+      and(
+        succeeded(),
+        eq(${{ parameters.shouldTest }}, true)
+      )
+    inputs:
+      command: test
+      projects: ${{ parameters.projectParentFolderPath }}/${{ parameters.projectFolderName }}/**/*[Tt]est/*.csproj
+      arguments: --no-restore --configuration ${{ parameters.buildConfiguration }}
+
+  - task: DotNetCoreCLI@2
+    displayName: Publish
+    condition: |
+      and(
+        succeeded(),
+        eq(${{ parameters.shouldPublish }}, true)
+      )
+    inputs:
+      command: publish
+      publishWebProjects: false
+      projects: |
+        ${{ parameters.projectParentFolderPath }}/${{ parameters.projectFolderName }}/**/${{ parameters.entrypointProjectName }}.csproj
+      arguments: --no-restore --configuration ${{ parameters.buildConfiguration }} --output $(Build.ArtifactStagingDirectory)
+
+  - powershell: |
+      $zipFile = Get-ChildItem -Path $(Build.ArtifactStagingDirectory) -Filter "*.zip" | Select-Object -First 1
+      Rename-Item `
+        -Path $zipFile.FullName `
+        -NewName "${{ parameters.projectFolderName }}.zip"
+    displayName: Rename zip file
+    condition: |
+      and(
+        succeeded(),
+        eq(${{ parameters.shouldPublish }}, true)
+      )
+    failOnStderr: true

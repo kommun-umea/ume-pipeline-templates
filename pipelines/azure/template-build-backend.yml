@@ -1,0 +1,49 @@
+parameters:
+  - name: projectFolderName
+    type: string
+
+  - name: entrypointProjectName
+    type: string
+
+  - name: projectParentFolderPath
+    type: string
+    default: src
+
+  - name: buildConfiguration
+    type: string
+    default: Release
+    values:
+      - Debug
+      - Release
+
+  - name: shouldTest
+    type: boolean
+    default: true
+
+  - name: shouldPublish
+    type: boolean
+    default: true
+
+jobs:
+  - job: BuildBackendJob
+    displayName: Build Backend
+    steps:
+      - template: ../general/template-build-backend.yml
+        parameters:
+          projectFolderName: ${{ parameters.projectFolderName }}
+          entrypointProjectName: ${{ parameters.entrypointProjectName }}
+          projectParentFolderPath: ${{ parameters.projectParentFolderPath }}
+          buildConfiguration: ${{ parameters.buildConfiguration }}
+          shouldTest: ${{ parameters.shouldTest }}
+          shouldPublish: ${{ parameters.shouldPublish }}
+
+      - task: PublishBuildArtifacts@1
+        displayName: Publish Artifact
+        condition: |
+          and(
+            succeeded(),
+            eq(${{ parameters.shouldPublish }}, true)
+          )
+        inputs:
+          PathtoPublish: $(Build.ArtifactStagingDirectory)
+          ArtifactName: ${{ parameters.projectFolderName }}
