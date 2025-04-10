@@ -140,11 +140,6 @@ jobs:
                   pingEndpoint: ${{ pingEndpoint }}
                   pingType: External
 
-      - template: helpers/template-disable-application.yml
-        parameters:
-          condition: eq(variables['PingFailed'], 'true')
-          path: ${{ parameters.destinationPath }}
-
   - job: BackupDeploymentJob
     displayName: Backup Deployment
     dependsOn: DeployBackendJob
