@@ -14,15 +14,16 @@ parameters:
   - name: runbookName
     type: string
 
-  - name: scheduleName
-    type: string
-
   - name: environment
     type: string
 
   - name: runbookParentFolderPath
     type: string
     default: src/runbooks
+
+  - name: scheduleName
+    type: string
+    default: ''
 
   - name: shouldLinkSchedule
     type: boolean
@@ -52,23 +53,23 @@ jobs:
             -runbookName ${{ parameters.runbookName }}
             -environment ${{ parameters.environment }}
 
-  - job: LinkRunbookScheduleJob
+  - job: UpdateRunbookScheduleLinkJob
     dependsOn: DeployRunbookJob
-    displayName: Link Runbook Schedule
+    displayName: Update Runbook Schedule Link
     steps:
       - checkout: ${{ parameters.templateRepoAlias }}
         path: templates
 
       - task: AzurePowershell@5
-        name: LinkRunbookScheduleTask
+        name: UpdateRunbookScheduleLinkTask
         inputs:
           azureSubscription: ${{ parameters.azureSubscription }}
           ScriptType: FilePath
-          ScriptPath: $(Pipeline.Workspace)/templates/pipelines/azure/scripts/link-schedule-to-runbook.ps1
+          ScriptPath: $(Pipeline.Workspace)/templates/pipelines/azure/scripts/update-runbook-schedule-link.ps1
           ScriptArguments: |
             -automationAccountName ${{ parameters.automationAccountName }} `
             -resourceGroupName ${{ parameters.resourceGroupName }} `
             -runbookResourceName ${{ parameters.runbookName }}-${{ parameters.environment }} `
-            -scheduleName ${{ parameters.scheduleName }} `
+            -scheduleName "${{ parameters.scheduleName }}" `
             -shouldLinkSchedule ${{ parameters.shouldLinkSchedule }}
           azurePowerShellVersion: 'LatestVersion'
