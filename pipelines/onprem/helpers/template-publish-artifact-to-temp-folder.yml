@@ -1,0 +1,20 @@
+parameters:
+  - name: destinationPath
+    type: string
+
+  - name: shouldPublish
+    type: boolean
+    default: true
+
+steps:
+  - task: CopyFiles@2
+    displayName: Publish artifact to temp folder
+    condition: |
+      and(
+        succeeded(),
+        eq(${{ parameters.shouldPublish }}, true)
+      )
+    inputs:
+      SourceFolder: $(Build.ArtifactStagingDirectory)
+      TargetFolder: ${{ parameters.destinationPath }}/temp
+      CleanTargetFolder: true

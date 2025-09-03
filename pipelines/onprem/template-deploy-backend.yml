@@ -161,18 +161,3 @@ jobs:
           SourceFolder: ${{ parameters.destinationPath }}/temp
           TargetFolder: ${{ parameters.destinationPath }}/backup/
         displayName: Backup deployment
-
-  - job: CleanupJob
-    displayName: Cleanup
-    dependsOn:
-      - RollbackDeploymentJob
-      - BackupDeploymentJob
-    condition: always()
-    steps:
-      - checkout: none
-
-      - powershell: |
-          Write-Host "[Ume]: Removing temp directory..."
-          Remove-Item -Path ${{ parameters.destinationPath }}/temp -Recurse -Force
-        displayName: Cleanup temp directory
-        failOnStderr: true

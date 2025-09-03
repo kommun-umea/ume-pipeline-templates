@@ -30,13 +30,13 @@ parameters:
 
 steps:
   - task: UseDotNet@2
-    displayName: Use .NET ${{ parameters.dotnetVersion }}
+    displayName: Backend Use .NET ${{ parameters.dotnetVersion }}
     inputs:
       packageType: sdk
       version: ${{ parameters.dotnetVersion }}
 
   - task: DotNetCoreCLI@2
-    displayName: Restore
+    displayName: Backend Restore
     inputs:
       command: restore
       projects: ${{ parameters.projectParentFolderPath }}/${{ parameters.projectFolderName }}/**/*.csproj
@@ -46,14 +46,14 @@ steps:
       verbosityRestore: Minimal
 
   - task: DotNetCoreCLI@2
-    displayName: Build
+    displayName: Backend Build
     inputs:
       command: build
       projects: ${{ parameters.projectParentFolderPath }}/${{ parameters.projectFolderName }}/**/*.csproj
       arguments: --no-restore --configuration ${{ parameters.buildConfiguration }}
 
   - task: DotNetCoreCLI@2
-    displayName: Test
+    displayName: Backend Test
     condition: |
       and(
         succeeded(),
@@ -62,10 +62,18 @@ steps:
     inputs:
       command: test
       projects: ${{ parameters.projectParentFolderPath }}/${{ parameters.projectFolderName }}/**/*[Tt]est/*.csproj
-      arguments: --no-restore --configuration ${{ parameters.buildConfiguration }}
+      arguments: --no-restore --configuration ${{ parameters.buildConfiguration }} --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+      publishTestResults: true
+
+  - task: PublishCodeCoverageResults@2
+    displayName: 'Publish code coverage'
+    inputs:
+      codeCoverageTool: 'Cobertura'
+      summaryFileLocation: '$(Agent.TempDirectory)/**/coverage.cobertura.xml'
+
 
   - task: DotNetCoreCLI@2
-    displayName: Publish
+    displayName: Backend Publish
     condition: |
       and(
         succeeded(),
@@ -83,7 +91,7 @@ steps:
       Rename-Item `
         -Path $zipFile.FullName `
         -NewName "${{ parameters.projectFolderName }}.zip"
-    displayName: Rename zip file
+    displayName: Backend Rename zip file
     condition: |
       and(
         succeeded(),

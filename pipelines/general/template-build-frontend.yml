@@ -9,10 +9,6 @@ parameters:
     type: string
     default: src
 
-  - name: outputDirectory
-    type: string
-    default: wwwroot
-
   - name: shouldTest
     type: boolean
     default: true
@@ -23,14 +19,14 @@ parameters:
 
 steps:
   - task: Npm@1
-    displayName: Install
+    displayName: Frontend Install
     inputs:
       command: install
       workingDir: ${{ parameters.projectParentFolderPath }}/${{ parameters.projectFolderName }}
       verbose: true
 
   - task: Npm@1
-    displayName: Test
+    displayName: Frontend Test
     condition: |
       and(
         succeeded(),
@@ -43,7 +39,7 @@ steps:
       verbose: true
 
   - task: Npm@1
-    displayName: Lint
+    displayName: Frontend Lint
     condition: |
       and(
         succeeded(),
@@ -56,7 +52,7 @@ steps:
       verbose: true
 
   - task: Npm@1
-    displayName: Build
+    displayName: Frontend Build
     inputs:
       command: custom
       customCommand: run build -- --mode=${{ parameters.environment }}

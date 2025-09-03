@@ -1,0 +1,96 @@
+parameters:
+  - name: templateRepoAlias
+    type: string
+
+  - name: destinationPath
+    type: string
+
+  - name: variableGroup
+    type: string
+
+
+  - name: frontendEnvironment
+    type: string
+
+  - name: frontendProjectFolderName
+    type: string
+
+  - name: frontendProjectParentFolderPath
+    type: string
+
+  - name: frontendShouldTest
+    type: boolean
+    default: true
+
+  - name: frontendShouldLint
+    type: boolean
+    default: true
+
+
+  - name: backendProjectFolderName
+    type: string
+
+  - name: backendEntrypointProjectName
+    type: string
+
+  - name: backendProjectParentFolderPath
+    type: string
+    default: src
+
+  - name: backendBuildConfiguration
+    type: string
+    default: Release
+    values:
+      - Debug
+      - Release
+
+  - name: backendDotnetVersion
+    type: string
+    default: 8.0.x
+
+  - name: backendShouldTest
+    type: boolean
+    default: true
+
+  - name: backendShouldPublish
+    type: boolean
+    default: true
+
+  - name: backendShouldUpdateAppsettings
+    type: boolean
+    default: true
+
+jobs:
+  - job: BuildBackendWithFrontendJob
+    displayName: Build Backend with Frontend
+    steps:
+      - template: ../general/template-build-backend-with-frontend.yml
+        parameters:
+          frontendEnvironment: ${{ parameters.frontendEnvironment }}
+          frontendProjectFolderName: ${{ parameters.frontendProjectFolderName }}
+          frontendProjectParentFolderPath: ${{ parameters.frontendProjectParentFolderPath }}
+          frontendShouldTest: ${{ parameters.frontendShouldTest }}
+          frontendShouldLint: ${{ parameters.frontendShouldLint }}
+
+          backendProjectFolderName: ${{ parameters.backendProjectFolderName }}
+          backendEntrypointProjectName: ${{ parameters.backendEntrypointProjectName }}
+          backendProjectParentFolderPath: ${{ parameters.backendProjectParentFolderPath }}
+          backendBuildConfiguration: ${{ parameters.backendBuildConfiguration }}
+          backendDotnetVersion: ${{ parameters.backendDotnetVersion }}
+          backendShouldTest: ${{ parameters.backendShouldTest }}
+          backendShouldPublish: ${{ parameters.backendShouldPublish }}
+
+      - template: helpers/template-publish-artifact-to-temp-folder.yml
+        parameters:
+          destinationPath: ${{ parameters.destinationPath }}
+          shouldPublish: ${{ parameters.backendShouldPublish }}
+
+  - template: helpers/template-update-appsettings.yml
+    parameters:
+      dependsOn: BuildBackendWithFrontendJob
+      templateRepoAlias: ${{ parameters.templateRepoAlias }}
+      variableGroup: ${{ parameters.variableGroup }}
+      destinationPath: ${{ parameters.destinationPath }}
+      projectFolderName: ${{ parameters.backendProjectFolderName }}
+      shouldPublish: ${{ parameters.backendShouldPublish }}
+      shouldUpdateAppsettings: ${{ parameters.backendShouldUpdateAppsettings }}

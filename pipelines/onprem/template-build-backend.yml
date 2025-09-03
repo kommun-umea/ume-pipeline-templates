@@ -5,13 +5,13 @@ parameters:
   - name: destinationPath
     type: string
 
+  - name: variableGroup
+    type: string
+
   - name: projectFolderName
     type: string
 
   - name: entrypointProjectName
-    type: string
-
-  - name: variableGroup
     type: string
 
   - name: projectParentFolderPath
@@ -50,37 +50,17 @@ jobs:
           shouldTest: ${{ parameters.shouldTest }}
           shouldPublish: ${{ parameters.shouldPublish }}
 
-      - task: CopyFiles@2
-        displayName: Publish artifact to temp folder
-        condition: |
-          and(
-            succeeded(),
-            eq(${{ parameters.shouldPublish }}, true)
-          )
-        inputs:
-          SourceFolder: $(Build.ArtifactStagingDirectory)
-          TargetFolder: ${{ parameters.destinationPath }}/temp
-          CleanTargetFolder: true
+      - template: helpers/template-publish-artifact-to-temp-folder.yml
+        parameters:
+          destinationPath: ${{ parameters.destinationPath }}
+          shouldPublish: ${{ parameters.shouldPublish }}
 
-  - job: UpdateAppsettingsJob
-    displayName: Update appsettings.json
-    dependsOn: BuildBackendJob
-    condition: |
-      and(
-        succeeded(),
-        eq(${{ parameters.shouldPublish }}, true),
-        eq(${{ parameters.shouldUpdateAppsettings }}, true)
-      )
-    steps:
-      - checkout: ${{ parameters.templateRepoAlias }}
-        path: templates
-
-      - task: PowerShell@2
-        displayName: Update appsettings.json
-        inputs:
-          targetType: filePath
-          filePath: $(Pipeline.Workspace)/templates/pipelines/onprem/scripts/update-appsettings.ps1
-          arguments: |
-            -variableGroup "${{ parameters.variableGroup }}" `
-            -zipFilePath "${{ parameters.destinationPath }}/temp/${{ parameters.projectFolderName }}.zip" `
-            -personalAccessToken "$(System.AccessToken)"
+  - template: helpers/template-update-appsettings.yml
+    parameters:
+      dependsOn: BuildBackendJob
+      templateRepoAlias: ${{ parameters.templateRepoAlias }}
+      variableGroup: ${{ parameters.variableGroup }}
+      destinationPath: ${{ parameters.destinationPath }}
+      projectFolderName: ${{ parameters.projectFolderName }}
+      shouldPublish: ${{ parameters.shouldPublish }}
+      shouldUpdateAppsettings: ${{ parameters.shouldUpdateAppsettings }}

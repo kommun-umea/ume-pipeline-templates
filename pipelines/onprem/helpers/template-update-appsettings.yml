@@ -1,0 +1,47 @@
+parameters:
+  - name: dependsOn
+    type: string
+
+  - name: templateRepoAlias
+    type: string
+
+  - name: variableGroup
+    type: string
+
+  - name: destinationPath
+    type: string
+
+  - name: projectFolderName
+    type: string
+
+  - name: shouldPublish
+    type: boolean
+    default: true
+
+  - name: shouldUpdateAppsettings
+    type: boolean
+    default: true
+
+jobs:
+  - job: UpdateAppsettingsJob
+    dependsOn: ${{ parameters.dependsOn }}
+    displayName: Update appsettings.json
+    condition: |
+      and(
+        succeeded(),
+        eq(${{ parameters.shouldPublish }}, true),
+        eq(${{ parameters.shouldUpdateAppsettings }}, true)
+      )
+    steps:
+      - checkout: ${{ parameters.templateRepoAlias }}
+        path: templates
+
+      - task: PowerShell@2
+        displayName: Update appsettings.json
+        inputs:
+          targetType: filePath
+          filePath: $(Pipeline.Workspace)/templates/pipelines/onprem/scripts/update-appsettings.ps1
+          arguments: |
+            -variableGroup "${{ parameters.variableGroup }}" `
+            -zipFilePath "${{ parameters.destinationPath }}/temp/${{ parameters.projectFolderName }}.zip" `
+            -personalAccessToken "$(System.AccessToken)"
