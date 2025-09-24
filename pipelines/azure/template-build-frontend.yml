@@ -8,7 +8,7 @@ parameters:
   - name: projectParentFolderPath
     type: string
     default: src
-
+    
   - name: outputDirectory
     type: string
     default: wwwroot
@@ -34,7 +34,6 @@ jobs:
           environment: ${{ parameters.environment }}
           projectFolderName: ${{ parameters.projectFolderName }}
           projectParentFolderPath: ${{ parameters.projectParentFolderPath }}
-          outputDirectory: ${{ parameters.outputDirectory }}
           shouldTest: ${{ parameters.shouldTest }}
           shouldLint: ${{ parameters.shouldLint }}
 

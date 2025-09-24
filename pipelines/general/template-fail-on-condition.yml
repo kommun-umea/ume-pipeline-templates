@@ -1,0 +1,27 @@
+parameters:
+  - name: failCondition
+    type: string
+
+  - name: errorMessage
+    type: string
+    default: 'A condition to fail the pipeline has been met.'
+
+jobs:
+  - job: FailOnConditionJob
+    displayName: Fail on condition
+    variables:
+      conditionVariable: $[ ${{ parameters.failCondition }} ]
+    steps:
+      - checkout: none
+      - task: PowerShell@2
+        displayName: Fail on condition
+        name: FailOnConditionTask
+        inputs:
+          targetType: inline
+          script: |
+            if ($env:CONDITION -eq 'True') {
+              Write-Host "##vso[task.logissue type=error;]${{ parameters.errorMessage }}"
+              throw '${{ parameters.errorMessage }}'
+            }
+        env:
+          CONDITION: $(conditionVariable)

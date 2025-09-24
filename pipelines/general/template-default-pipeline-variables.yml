@@ -1,0 +1,37 @@
+parameters:
+  # Environment
+  - name: environment
+    type: string
+    default: dev
+
+variables:
+  - name: environment
+    value: ${{ parameters.environment }}
+
+  # Service Connection
+  - ${{ if eq(parameters.environment, 'prod') }}:
+      - name: serviceConnection
+        value: Ume_ServiceConnection_Prod-Turkos
+  - ${{ if eq(parameters.environment, 'test') }}:
+      - name: serviceConnection
+        value: Ume_ServiceConnection_Test-Turkos
+  - ${{ if eq(parameters.environment, 'dev') }}:
+      - name: serviceConnection
+        value: Ume_ServiceConnection_Dev-Turkos
+
+  # Pipeline build name
+  - ${{ if startsWith(variables['Build.SourceBranch'], 'refs/heads/') }}:
+      - name: buildNameBranch
+        value: ${{ replace(replace(variables['Build.SourceBranch'], 'refs/heads/', ''), '/', '') }}
+  - ${{ if startsWith(variables['Build.SourceBranch'], 'refs/tags/release/') }}:
+      - name: buildNameBranch
+        value: ${{ replace(replace(variables['Build.SourceBranch'], 'refs/tags/release/', 'release-'), '/', '') }}
+  - ${{ if and(eq(parameters.environment, 'prod'), eq(variables['Build.SourceBranchName'], 'main')) }}:
+      - name: buildNameBranch
+        value: release
+  - ${{ if startsWith(variables['Build.SourceBranch'], 'refs/pull/') }}:
+      - name: buildNameBranch
+        value: ${{ replace(replace(replace(variables['Build.SourceBranch'], 'refs/pull/', 'pr'), 'merge', ''), '/', '') }}
+
+  - name: buildName
+    value: ${{ variables['buildNameBranch'] }}_${{ parameters.environment }}

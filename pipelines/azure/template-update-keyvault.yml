@@ -1,8 +1,8 @@
 parameters:
-  - name: templateRepoAlias
+  - name: environment
     type: string
 
-  - name: environment
+  - name: templateRepoAlias
     type: string
 
   - name: serviceConnection
@@ -18,21 +18,25 @@ parameters:
     type: string
 
 jobs:
-  - job: UpdateKeyVaultJob
-    displayName: Update ${{ parameters.keyVaultName }}
-    steps:
-      - checkout: ${{ parameters.templateRepoAlias }}
-        path: templates
+  - deployment: UpdateKeyVaultJob
+    displayName: Update Key Vault in ${{ parameters.environment }}
+    environment: ${{ parameters.environment }}
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+            - checkout: ${{ parameters.templateRepoAlias }}
+              path: templates
 
-      - task: AzureCLI@2
-        displayName: Update Key Vault
-        inputs:
-          azureSubscription: ${{ parameters.serviceConnection }}
-          scriptType: pscore
-          scriptLocation: scriptPath
-          scriptPath: $(Pipeline.Workspace)/templates/pipelines/azure/scripts/update-keyvault.ps1
-          arguments: >
-            -environment ${{ parameters.environment }}
-            -variableGroupName ${{ parameters.variableGroupName }}
-            -keyVaultName ${{ parameters.keyVaultName }}
-            -personalAccessToken ${{ parameters.personalAccessToken }}
+            - task: AzureCLI@2
+              displayName: Update ${{ parameters.keyVaultName }}
+              inputs:
+                azureSubscription: ${{ parameters.serviceConnection }}
+                scriptType: pscore
+                scriptLocation: scriptPath
+                scriptPath: $(Pipeline.Workspace)/templates/pipelines/azure/scripts/update-keyvault.ps1
+                arguments: >
+                  -environment ${{ parameters.environment }}
+                  -variableGroupName ${{ parameters.variableGroupName }}
+                  -keyVaultName ${{ parameters.keyVaultName }}
+                  -personalAccessToken ${{ parameters.personalAccessToken }}

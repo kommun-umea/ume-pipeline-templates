@@ -1,0 +1,42 @@
+parameters:
+  - name: templateRepoAlias
+    type: string
+
+  - name: tag
+    type: string
+
+  - name: deploymentBuildId
+    type: string
+
+  - name: deploymentFinishedDate
+    type: string
+
+  - name: producerJob
+    type: string
+
+  - name: outputVariable
+    type: string
+
+jobs:
+  - job: FinalizeSuccessfulReleaseTicketsJob
+    displayName: Finalize Successful Release Tickets
+    dependsOn: ${{ parameters.producerJob }}
+    condition: startsWith(variables['deploymentJobResult'], 'Succeeded')
+    variables:
+      ticketIds: $[ dependencies.${{ parameters.producerJob }}.outputs['Task.${{ parameters.outputVariable }}'] ]
+    steps:
+      - checkout: ${{ parameters.templateRepoAlias }}
+        path: templates
+
+      - task: PowerShell@2
+        displayName: Finalize Successful Release Tickets
+        name: FinalizeSuccessfulReleaseTicketsTask
+        inputs:
+          targetType: filePath
+          filePath: $(Pipeline.Workspace)/templates/pipelines/release/scripts/finalize-successful-release-tickets.ps1
+        env:
+          SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+          TICKET_IDS: $(ticketIds)
+          TAG: ${{ parameters.tag }}
+          DEPLOYMENT_BUILDID: ${{ parameters.deploymentBuildId }}
+          DEPLOYMENT_FINISHED_DATE: ${{ parameters.deploymentFinishedDate }}

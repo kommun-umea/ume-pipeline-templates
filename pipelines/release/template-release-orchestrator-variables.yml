@@ -1,0 +1,17 @@
+variables:
+  - name: isSourceMain
+    value: ${{ eq(variables['Build.SourceBranch'], 'refs/heads/main') }}
+
+  - name: isSourceReleaseTag
+    value: ${{ startsWith(variables['Build.SourceBranch'], 'refs/tags/release/') }}
+
+  - name: isNewRelease
+    value: >-
+      ${{
+        and(
+          eq(variables['isSourceMain'], true),
+          eq(variables['isSourceReleaseTag'], false),
+          eq(variables['Build.Reason'], 'IndividualCI'),
+          startsWith(variables['Build.SourceVersionMessage'], 'Merged PR')
+        )
+      }}

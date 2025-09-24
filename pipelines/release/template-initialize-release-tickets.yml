@@ -1,0 +1,34 @@
+parameters:
+  - name: templateRepoAlias
+    type: string
+
+  - name: tag
+    type: string
+
+  - name: producerJob
+    type: string
+
+  - name: outputVariable
+    type: string
+
+jobs:
+  - job: InitializeReleaseTicketsJob
+    displayName: Initialize Release Tickets
+    dependsOn: ${{ parameters.producerJob }}
+    condition: not(or(failed(), canceled()))
+    variables:
+      ticketIds: $[ dependencies.${{ parameters.producerJob }}.outputs['Task.${{ parameters.outputVariable }}'] ]
+    steps:
+      - checkout: ${{ parameters.templateRepoAlias }}
+        path: templates
+
+      - task: PowerShell@2
+        displayName: Initialize Release Tickets
+        name: InitializeReleaseTicketsTask
+        inputs:
+          targetType: filePath
+          filePath: $(Pipeline.Workspace)/templates/pipelines/release/scripts/initialize-release-tickets.ps1
+        env:
+          SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+          TICKET_IDS: $(ticketIds)
+          TAG: ${{ parameters.tag }}

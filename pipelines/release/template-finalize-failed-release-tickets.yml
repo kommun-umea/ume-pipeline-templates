@@ -1,0 +1,34 @@
+parameters:
+  - name: templateRepoAlias
+    type: string
+
+  - name: failedTag
+    type: string
+
+  - name: producerJob
+    type: string
+
+  - name: outputVariable
+    type: string
+
+jobs:
+  - job: FinalizeFailedReleaseTicketsJob
+    displayName: Finalize Failed Release Tickets
+    dependsOn: ${{ parameters.producerJob }}
+    condition: or(eq(variables['deploymentJobResult'], 'Failed'), eq(variables['deploymentJobResult'], 'Canceled'))
+    variables:
+      ticketIds: $[ dependencies.${{ parameters.producerJob }}.outputs['Task.${{ parameters.outputVariable }}'] ]
+    steps:
+      - checkout: ${{ parameters.templateRepoAlias }}
+        path: templates
+
+      - task: PowerShell@2
+        displayName: Finalize Failed Release Tickets
+        name: FinalizeFailedReleaseTicketsTask
+        inputs:
+          targetType: filePath
+          filePath: $(Pipeline.Workspace)/templates/pipelines/release/scripts/finalize-failed-release-tickets.ps1
+        env:
+          SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+          FAILED_TAG: ${{ parameters.failedTag }}
+          TICKET_IDS: $(ticketIds)

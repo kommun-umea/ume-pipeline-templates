@@ -1,0 +1,18 @@
+parameters:
+  - name: templateRepoAlias
+    type: string
+
+  - name: pullRequestId
+    type: string
+
+jobs:
+  - template: template-get-pullrequest-tags.yml
+    parameters:
+      templateRepoAlias: ${{ parameters.templateRepoAlias }}
+      pullRequestId: ${{ parameters.pullRequestId }}
+
+  - template: template-get-valid-release-tag.yml
+    parameters:
+      templateRepoAlias: ${{ parameters.templateRepoAlias }}
+      producerJob: GetPullRequestTagsJob
+      outputVariable: PULLREQUEST_TAGS

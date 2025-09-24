@@ -51,4 +51,5 @@ jobs:
 
             Write-Host "---"
 
-            Write-Host "##vso[task.setvariable variable=changedPaths;isOutput=true]$detectedChangedPaths"
+            Write-Host "##vso[task.setvariable variable=CHANGED_PATHS;isOutput=true]$detectedChangedPaths"
+            Write-Host "Set output variable: CHANGED_PATHS = '$detectedChangedPaths'"

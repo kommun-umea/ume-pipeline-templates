@@ -1,4 +1,7 @@
 parameters:
+  - name: environment
+    type: string
+
   - name: templateRepoAlias
     type: string
 
@@ -14,9 +17,6 @@ parameters:
   - name: runbookName
     type: string
 
-  - name: environment
-    type: string
-
   - name: runbookParentFolderPath
     type: string
     default: src/runbooks
@@ -30,28 +30,32 @@ parameters:
     default: true
 
 jobs:
-  - job: DeployRunbookJob
-    displayName: Deploy Runbook
-    steps:
-      - checkout: self
-        path: self
+  - deployment: DeployRunbookJob
+    displayName: Deploy to ${{ parameters.environment }}
+    environment: ${{ parameters.environment }}
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+            - checkout: self
+              path: self
 
-      - checkout: ${{ parameters.templateRepoAlias }}
-        path: templates
+            - checkout: ${{ parameters.templateRepoAlias }}
+              path: templates
 
-      - task: AzureCLI@2
-        name: DeployRunbookTask
-        inputs:
-          azureSubscription: ${{ parameters.azureSubscription }}
-          scriptType: pscore
-          scriptLocation: scriptPath
-          scriptPath: $(Pipeline.Workspace)/templates/pipelines/azure/scripts/deploy-runbook.ps1
-          arguments: >
-            -automationAccountName ${{ parameters.automationAccountName }}
-            -resourceGroupName ${{ parameters.resourceGroupName }}
-            -runbookPath $(Pipeline.Workspace)/self/${{ parameters.runbookParentFolderPath }}/${{ parameters.runbookName }}.ps1
-            -runbookName ${{ parameters.runbookName }}
-            -environment ${{ parameters.environment }}
+            - task: AzureCLI@2
+              name: DeployRunbookTask
+              inputs:
+                azureSubscription: ${{ parameters.azureSubscription }}
+                scriptType: pscore
+                scriptLocation: scriptPath
+                scriptPath: $(Pipeline.Workspace)/templates/pipelines/azure/scripts/deploy-runbook.ps1
+                arguments: >
+                  -automationAccountName ${{ parameters.automationAccountName }}
+                  -resourceGroupName ${{ parameters.resourceGroupName }}
+                  -runbookPath $(Pipeline.Workspace)/self/${{ parameters.runbookParentFolderPath }}/${{ parameters.runbookName }}.ps1
+                  -runbookName ${{ parameters.runbookName }}
+                  -environment ${{ parameters.environment }}
 
   - job: UpdateRunbookScheduleLinkJob
     dependsOn: DeployRunbookJob
