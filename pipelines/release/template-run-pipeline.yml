@@ -8,6 +8,10 @@ parameters:
   - name: pipelineFilePath
     type: string
 
+  - name: sourceTag
+    type: string
+    default: ''
+
 jobs:
   - job: Job
     displayName: Run pipeline
@@ -26,6 +30,7 @@ jobs:
           SYSTEM_ACCESSTOKEN: $(System.AccessToken)
           ENVIRONMENT: ${{ parameters.environment }}
           PIPELINE_FILE_PATH: ${{ parameters.pipelineFilePath }}
+          BUILD_SOURCETAG: ${{ parameters.sourceTag }}
 
       - task: PowerShell@2
         displayName: Handle cancellation

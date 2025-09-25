@@ -9,6 +9,7 @@ $repositoryId = $env:BUILD_REPOSITORY_ID
 $repositoryType = $env:BUILD_REPOSITORY_PROVIDER
 $branch = $env:BUILD_SOURCEBRANCH
 $commitId = $env:BUILD_SOURCEVERSION
+$tag = $env:BUILD_SOURCETAG
 $devopsBaseUrl = $env:SYSTEM_COLLECTIONURI
 $projectName = $env:SYSTEM_TEAMPROJECT
 
@@ -30,11 +31,8 @@ if ([string]::IsNullOrWhiteSpace($repositoryId)) {
 if ([string]::IsNullOrWhiteSpace($repositoryType)) {
     ThrowError("Repository Type is not provided.")
 }
-if ([string]::IsNullOrWhiteSpace($branch)) {
-    ThrowError("Branch is not provided.")
-}
-if ([string]::IsNullOrWhiteSpace($commitId)) {
-    ThrowError("Commit ID is not provided.")
+if (([string]::IsNullOrWhiteSpace($branch) -or [string]::IsNullOrWhiteSpace($commitId)) -and [string]::IsNullOrWhiteSpace($tag)) {
+    ThrowError("Source is not provided.")
 }
 if ([string]::IsNullOrWhiteSpace($devopsBaseUrl)) {
     ThrowError("DevOps Base URL is not provided.")
@@ -48,6 +46,7 @@ $authenticationHeader = @{
 }
 $baseUrl = "$devopsBaseUrl/$projectName/_apis"
 $apiVersion = "api-version=7.1"
+
 
 Write-Host "Finding pipeline with YAML file path: $pipelineFilePath"
 $getPipelinesUrl = "$baseUrl/build/definitions?repositoryId=$repositoryId&repositoryType=$repositoryType&includeAllProperties=true&$apiVersion"
@@ -66,8 +65,15 @@ $body = @{
         }
     }
     templateParameters = @{ environment = $environment }
-} | ConvertTo-Json -Depth 10
-$pipelineRun = Invoke-RestMethod -Method Post -Uri $runPipelineUrl -Headers $authenticationHeader -Body $body -ContentType 'application/json'
+}
+$isSourceTag = -not [string]::IsNullOrWhiteSpace($tag)
+if ($isSourceTag) {
+    $body.resources.repositories.self = @{
+        refName = "refs/tags/$tag"
+    }
+}
+$bodyJson = $body | ConvertTo-Json -Depth 10
+$pipelineRun = Invoke-RestMethod -Method Post -Uri $runPipelineUrl -Headers $authenticationHeader -Body $bodyJson -ContentType 'application/json'
 
 $buildId = $pipelineRun.id
 Write-Host "##vso[task.setvariable variable=PIPELINE_BUILD_ID;isOutput=true]$buildId"

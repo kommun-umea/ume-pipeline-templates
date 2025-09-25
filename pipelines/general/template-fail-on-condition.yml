@@ -6,9 +6,17 @@ parameters:
     type: string
     default: 'A condition to fail the pipeline has been met.'
 
+  - name: displayName
+    type: string
+    default: 'Fail on condition'
+
+  - name: jobNumber
+    type: number
+    default: 1
+
 jobs:
-  - job: FailOnConditionJob
-    displayName: Fail on condition
+  - job: FailOnConditionJob${{ parameters.jobNumber }}
+    displayName: ${{ parameters.displayName }}
     variables:
       conditionVariable: $[ ${{ parameters.failCondition }} ]
     steps:

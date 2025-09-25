@@ -18,6 +18,19 @@ stages:
               eq(variables['Build.Reason'], 'Manual')
             )
           errorMessage: Manual releases from latest commit on main is not allowed. Use release tag instead.
+          displayName: Fail on manual release from main
+          jobNumber: 1
+
+      - template: ../general/template-fail-on-condition.yml
+        parameters:
+          failCondition: >-
+            and(
+              eq(variables['isNewRelease'], false),
+              eq(variables['environment'], 'prod')
+            )
+          errorMessage: Manual releases to production are not allowed.
+          displayName: Fail on manual release to production
+          jobNumber: 2
 
   - stage: GetPullRequestIdStage
     displayName: Get Pull Request Id
@@ -72,18 +85,20 @@ stages:
       and(
         or(
           eq(variables['isSourceReleaseTag'], true),
-          ne(variables['releaseTag'], '')
+          ne(variables['conditionReleaseTag'], '')
         ),
         not(or(failed(), canceled()))
       )
     variables:
-      releaseTag: $[ dependencies.GetReleaseTagStage.outputs['Job.Task.RELEASE_TAG'] ]
+      conditionReleaseTag: $[ dependencies.GetReleaseTagStage.outputs['Job.Task.RELEASE_TAG'] ]
+      parameterReleaseTag: $[ stageDependencies.GetReleaseTagStage.Job.outputs['Task.RELEASE_TAG'] ]
     jobs:
       - template: template-run-pipeline.yml
         parameters:
           templateRepoAlias: ${{ parameters.templateRepoAlias }}
           environment: ${{ parameters.environment }}
           pipelineFilePath: pipelines/deployment.yml
+          sourceTag: $(parameterReleaseTag)
 
   - stage: FinalizeReleaseStage
     displayName: Finalize Release
