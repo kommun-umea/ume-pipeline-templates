@@ -22,7 +22,7 @@ if ([string]::IsNullOrWhiteSpace($projectName)) {
 $authenticationHeader = @{
     Authorization = "Bearer $accessToken"
 }
-$baseUrl = "$devopsBaseUrl/$projectName/_apis"
+$baseUrl = "$devopsBaseUrl$projectName/_apis"
 $apiVersion = "api-version=7.1"
 
 Write-Host "Cancelling pipeline run..."

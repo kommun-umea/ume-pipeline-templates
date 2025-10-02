@@ -28,7 +28,7 @@ $authenticationHeader = @{
     Authorization = "Bearer $accessToken"
 }
 $patchAuthenticationHeader = ($authenticationHeader + @{ "Content-Type" = "application/json-patch+json" })
-$baseUrl = "$devopsBaseUrl/$projectName/_apis"
+$baseUrl = "$devopsBaseUrl$projectName/_apis"
 $apiVersion = "api-version=7.1"
 
 $fieldsToUpdate = @(

@@ -6,6 +6,10 @@ parameters:
   - name: environment
     type: string
 
+  - name: prodEnvironment
+    type: string
+    default: prod
+
 stages:
   - stage: ValidateRequestStage
     displayName: Validate Request
@@ -14,110 +18,81 @@ stages:
         parameters:
           failCondition: >-
             and(
-              eq(variables['isSourceMain'], true),
-              eq(variables['Build.Reason'], 'Manual')
-            )
-          errorMessage: Manual releases from latest commit on main is not allowed. Use release tag instead.
-          displayName: Fail on manual release from main
-          jobNumber: 1
-
-      - template: ../general/template-fail-on-condition.yml
-        parameters:
-          failCondition: >-
-            and(
               eq(variables['isNewRelease'], false),
-              eq(variables['environment'], 'prod')
+              eq(variables['environment'], '${{ parameters.prodEnvironment }}')
             )
-          errorMessage: Manual releases to production are not allowed.
+          errorMessage: Manual releases to production are not allowed. To create a new release, merge a pull request to main. To deploy a rerelease, use an existing release tag in the deployment pipeline.
           displayName: Fail on manual release to production
-          jobNumber: 2
 
-  - stage: GetPullRequestIdStage
-    displayName: Get Pull Request Id
-    condition: eq(variables['isNewRelease'], true)
+  - stage: GetPullRequestStage
+    displayName: Get Pull Request
+    dependsOn: ValidateRequestStage
+    condition: not(or(failed(), canceled()))
     jobs:
-      - template: template-get-pullrequest-id.yml
+      - template: template-get-pullrequest.yml
         parameters:
           templateRepoAlias: ${{ parameters.templateRepoAlias }}
 
-  - stage: GetReleaseTagStage
-    displayName: Get Release Tag
-    dependsOn: GetPullRequestIdStage
-    condition: >-
-      and(
-        eq(variables['isNewRelease'], true),
-        not(or(failed(), canceled()))
-      )
+  - stage: GenerateReleaseTagStage
+    displayName: Generate Release Tag
+    dependsOn: GetPullRequestStage
+    condition: not(or(failed(), canceled()))
     variables:
-      pullRequestId: $[ stageDependencies.GetPullRequestIdStage.Job.outputs['Task.PULLREQUEST_ID'] ]
+      ticketIds: $[ stageDependencies.GetPullRequestStage.GetPullRequestJob.outputs['Task.PULLREQUEST_TICKET_IDS'] ]
     jobs:
-      - template: template-get-valid-release-tag-from-pullrequest.yml
+      - template: template-generate-release-tag.yml
         parameters:
           templateRepoAlias: ${{ parameters.templateRepoAlias }}
-          pullRequestId: $(pullRequestId)
+          ticketIds: $(ticketIds)
 
   - stage: InitializeReleaseStage
     displayName: Initialize Release
     dependsOn:
-      - GetReleaseTagStage
-      - GetPullRequestIdStage
-    condition: >-
-      and(
-        eq(variables['isNewRelease'], true),
-        not(or(failed(), canceled()))
-      )
+      - GenerateReleaseTagStage
+      - GetPullRequestStage
+    condition: not(or(failed(), canceled()))
     variables:
-      releaseTag: $[ stageDependencies.GetReleaseTagStage.Job.outputs['Task.RELEASE_TAG'] ]
-      pullRequestId: $[ stageDependencies.GetPullRequestIdStage.Job.outputs['Task.PULLREQUEST_ID'] ]
+      releaseTag: $[ stageDependencies.GenerateReleaseTagStage.GenerateReleaseTagJob.outputs['Task.RELEASE_TAG'] ]
+      ticketIds: $[ stageDependencies.GetPullRequestStage.GetPullRequestJob.outputs['Task.PULLREQUEST_TICKET_IDS'] ]
     jobs:
       - template: template-initialize-release.yml
         parameters:
           templateRepoAlias: ${{ parameters.templateRepoAlias }}
-          pullRequestId: $(pullRequestId)
+          ticketIds: $(ticketIds)
           tag: $(releaseTag)
 
   - stage: RunDeploymentPipelineStage
     displayName: Run Deployment
     dependsOn:
-      - GetReleaseTagStage
+      - GenerateReleaseTagStage
       - InitializeReleaseStage
-    condition: >-
-      and(
-        or(
-          eq(variables['isSourceReleaseTag'], true),
-          ne(variables['conditionReleaseTag'], '')
-        ),
-        not(or(failed(), canceled()))
-      )
+    condition: not(or(failed(), canceled()))
     variables:
-      conditionReleaseTag: $[ dependencies.GetReleaseTagStage.outputs['Job.Task.RELEASE_TAG'] ]
-      parameterReleaseTag: $[ stageDependencies.GetReleaseTagStage.Job.outputs['Task.RELEASE_TAG'] ]
+      releaseTag: $[ stageDependencies.GenerateReleaseTagStage.GenerateReleaseTagJob.outputs['Task.RELEASE_TAG'] ]
     jobs:
       - template: template-run-pipeline.yml
         parameters:
           templateRepoAlias: ${{ parameters.templateRepoAlias }}
           environment: ${{ parameters.environment }}
           pipelineFilePath: pipelines/deployment.yml
-          sourceTag: $(parameterReleaseTag)
+          sourceTag: $(releaseTag)
 
   - stage: FinalizeReleaseStage
     displayName: Finalize Release
     dependsOn:
-      - GetReleaseTagStage
-      - GetPullRequestIdStage
+      - GenerateReleaseTagStage
+      - GetPullRequestStage
       - RunDeploymentPipelineStage
-    condition: eq(variables['isNewRelease'], true)
+    condition: in(dependencies.RunDeploymentPipelineStage.result, 'Succeeded', 'Failed')
     variables:
-      releaseTag: $[ stageDependencies.GetReleaseTagStage.Job.outputs['Task.RELEASE_TAG'] ]
-      pullRequestId: $[ stageDependencies.GetPullRequestIdStage.Job.outputs['Task.PULLREQUEST_ID'] ]
+      releaseTag: $[ stageDependencies.GenerateReleaseTagStage.GenerateReleaseTagJob.outputs['Task.RELEASE_TAG'] ]
+      ticketIds: $[ stageDependencies.GetPullRequestStage.GetPullRequestJob.outputs['Task.PULLREQUEST_TICKET_IDS'] ]
       deploymentBuildId: $[ stageDependencies.RunDeploymentPipelineStage.Job.outputs['Task.PIPELINE_BUILD_ID'] ]
-      deploymentFinishedDate: $[ stageDependencies.RunDeploymentPipelineStage.Job.outputs['Task.PIPELINE_BUILD_FINISHED_DATE'] ]
       deploymentJobResult: $[ stageDependencies.RunDeploymentPipelineStage.Job.result ]
     jobs:
       - template: template-finalize-release.yml
         parameters:
           templateRepoAlias: ${{ parameters.templateRepoAlias }}
-          pullRequestId: $(pullRequestId)
+          ticketIds: $(ticketIds)
           tag: $(releaseTag)
           deploymentBuildId: $(deploymentBuildId)
-          deploymentFinishedDate: $(deploymentFinishedDate)

@@ -2,7 +2,7 @@ parameters:
   - name: templateRepoAlias
     type: string
 
-  - name: pullRequestId
+  - name: ticketIds
     type: string
 
   - name: tag
@@ -25,14 +25,8 @@ jobs:
       buildId: $(Build.BuildId)
       tag: ${{ parameters.tag }}
 
-  - template: template-get-pullrequest-tickets.yml
-    parameters:
-      templateRepoAlias: ${{ parameters.templateRepoAlias }}
-      pullRequestId: ${{ parameters.pullRequestId }}
-
   - template: template-initialize-release-tickets.yml
     parameters:
       templateRepoAlias: ${{ parameters.templateRepoAlias }}
       tag: ${{ parameters.tag }}
-      producerJob: GetPullRequestTicketsJob
-      outputVariable: PULLREQUEST_TICKET_IDS
+      ticketIds: ${{ parameters.ticketIds }}

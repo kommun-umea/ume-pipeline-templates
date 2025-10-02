@@ -2,16 +2,13 @@ parameters:
   - name: templateRepoAlias
     type: string
 
-  - name: pullRequestId
+  - name: ticketIds
     type: string
 
   - name: tag
     type: string
 
   - name: deploymentBuildId
-    type: string
-
-  - name: deploymentFinishedDate
     type: string
 
 jobs:
@@ -23,23 +20,14 @@ jobs:
       buildId: ${{ parameters.deploymentBuildId }}
       tag: ${{ parameters.tag }}
 
-  - template: template-get-pullrequest-tickets.yml
-    parameters:
-      templateRepoAlias: ${{ parameters.templateRepoAlias }}
-      pullRequestId: ${{ parameters.pullRequestId }}
-
   - template: template-finalize-successful-release-tickets.yml
     parameters:
       templateRepoAlias: ${{ parameters.templateRepoAlias }}
       tag: ${{ parameters.tag }}
-      deploymentBuildId: ${{ parameters.deploymentBuildId }}
-      deploymentFinishedDate: ${{ parameters.deploymentFinishedDate }}
-      producerJob: GetPullRequestTicketsJob
-      outputVariable: PULLREQUEST_TICKET_IDS
+      ticketIds: ${{ parameters.ticketIds }}
 
   - template: template-finalize-failed-release-tickets.yml
     parameters:
       templateRepoAlias: ${{ parameters.templateRepoAlias }}
       failedTag: 'FAILED RELEASE'
-      producerJob: GetPullRequestTicketsJob
-      outputVariable: PULLREQUEST_TICKET_IDS
+      ticketIds: ${{ parameters.ticketIds }}

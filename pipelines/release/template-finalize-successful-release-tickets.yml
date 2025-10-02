@@ -5,25 +5,13 @@ parameters:
   - name: tag
     type: string
 
-  - name: deploymentBuildId
-    type: string
-
-  - name: deploymentFinishedDate
-    type: string
-
-  - name: producerJob
-    type: string
-
-  - name: outputVariable
+  - name: ticketIds
     type: string
 
 jobs:
   - job: FinalizeSuccessfulReleaseTicketsJob
     displayName: Finalize Successful Release Tickets
-    dependsOn: ${{ parameters.producerJob }}
     condition: startsWith(variables['deploymentJobResult'], 'Succeeded')
-    variables:
-      ticketIds: $[ dependencies.${{ parameters.producerJob }}.outputs['Task.${{ parameters.outputVariable }}'] ]
     steps:
       - checkout: ${{ parameters.templateRepoAlias }}
         path: templates
@@ -36,7 +24,5 @@ jobs:
           filePath: $(Pipeline.Workspace)/templates/pipelines/release/scripts/finalize-successful-release-tickets.ps1
         env:
           SYSTEM_ACCESSTOKEN: $(System.AccessToken)
-          TICKET_IDS: $(ticketIds)
+          TICKET_IDS: ${{ parameters.ticketIds }}
           TAG: ${{ parameters.tag }}
-          DEPLOYMENT_BUILDID: ${{ parameters.deploymentBuildId }}
-          DEPLOYMENT_FINISHED_DATE: ${{ parameters.deploymentFinishedDate }}
