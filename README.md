@@ -2,7 +2,8 @@
 
 Azure DevOps pipeline templates for Umeå kommun Team Turkos projects.
 
-[[_TOC_]]
+**NOTE!**\
+Repositories in GitHub are currently not supported completely. All examples are based on pipelines and repositories in Azure DevOps.
 
 ## Overview
 
