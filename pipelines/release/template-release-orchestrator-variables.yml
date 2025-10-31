@@ -1,0 +1,21 @@
+parameters:
+  - name: mainBranch
+    type: string
+    default: main
+
+variables:
+  - name: mainBranchRef
+    value: refs/heads/${{ parameters.mainBranch }}
+
+  - name: isSourceMain
+    value: ${{ eq(variables['Build.SourceBranch'], variables['mainBranchRef']) }}
+
+  - name: isNewRelease
+    value: >-
+      ${{
+        and(
+          eq(variables['isSourceMain'], true),
+          eq(variables['Build.Reason'], 'IndividualCI'),
+          startsWith(variables['Build.SourceVersionMessage'], 'Merged PR')
+        )
+      }}

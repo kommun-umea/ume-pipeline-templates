@@ -1,0 +1,44 @@
+parameters:
+  - name: templateRepoAlias
+    type: string
+
+  - name: environment
+    type: string
+
+  - name: pipelineFilePath
+    type: string
+
+  - name: sourceTag
+    type: string
+    default: ''
+
+jobs:
+  - job: Job
+    displayName: Run pipeline
+    timeoutInMinutes: 720 # 12 hours
+    steps:
+      - checkout: ${{ parameters.templateRepoAlias }}
+        path: templates
+
+      - task: PowerShell@2
+        displayName: Run pipeline
+        name: Task
+        inputs:
+          targetType: filePath
+          filePath: $(Pipeline.Workspace)/templates/pipelines/release/scripts/run-pipeline.ps1
+        env:
+          SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+          ENVIRONMENT: ${{ parameters.environment }}
+          PIPELINE_FILE_PATH: ${{ parameters.pipelineFilePath }}
+          BUILD_SOURCETAG: ${{ parameters.sourceTag }}
+
+      - task: PowerShell@2
+        displayName: Handle cancellation
+        name: CancellationTask
+        condition: and(canceled(), ne(variables['Task.PIPELINE_BUILD_ID'], ''))
+        inputs:
+          targetType: filePath
+          filePath: $(Pipeline.Workspace)/templates/pipelines/release/scripts/cancel-pipeline-build.ps1
+        env:
+          SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+          PIPELINE_BUILD_ID: $(Task.PIPELINE_BUILD_ID)

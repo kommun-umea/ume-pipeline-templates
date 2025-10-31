@@ -1,0 +1,24 @@
+parameters:
+  - name: templateRepoAlias
+    type: string
+
+  - name: ticketIds
+    type: string
+
+jobs:
+  - job: GenerateReleaseTagJob
+    displayName: Generate Release Tag
+    condition: not(or(failed(), canceled()))
+    steps:
+      - checkout: ${{ parameters.templateRepoAlias }}
+        path: templates
+
+      - task: PowerShell@2
+        displayName: Generate Release Tag
+        name: Task
+        inputs:
+          targetType: filePath
+          filePath: $(Pipeline.Workspace)/templates/pipelines/release/scripts/generate-release-tag.ps1
+        env:
+          SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+          TICKET_IDS: ${{ parameters.ticketIds }}

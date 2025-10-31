@@ -1,0 +1,99 @@
+parameters:
+  - name: projectFolderName
+    type: string
+
+  - name: entrypointProjectName
+    type: string
+
+  - name: projectParentFolderPath
+    type: string
+    default: src
+
+  - name: buildConfiguration
+    type: string
+    default: Release
+    values:
+      - Debug
+      - Release
+
+  - name: dotnetVersion
+    type: string
+    default: 8.0.x
+
+  - name: shouldTest
+    type: boolean
+    default: true
+
+  - name: shouldPublish
+    type: boolean
+    default: true
+
+steps:
+  - task: UseDotNet@2
+    displayName: Backend Use .NET ${{ parameters.dotnetVersion }}
+    inputs:
+      packageType: sdk
+      version: ${{ parameters.dotnetVersion }}
+
+  - task: DotNetCoreCLI@2
+    displayName: Backend Restore
+    inputs:
+      command: restore
+      projects: ${{ parameters.projectParentFolderPath }}/${{ parameters.projectFolderName }}/**/*.csproj
+      feedsToUse: config
+      nugetConfigPath: NuGet.Config
+      restoreDirectory: $(Pipeline.Workspace)/.nuget/packages
+      verbosityRestore: Minimal
+
+  - task: DotNetCoreCLI@2
+    displayName: Backend Build
+    inputs:
+      command: build
+      projects: ${{ parameters.projectParentFolderPath }}/${{ parameters.projectFolderName }}/**/*.csproj
+      arguments: --no-restore --configuration ${{ parameters.buildConfiguration }}
+
+  - task: DotNetCoreCLI@2
+    displayName: Backend Test
+    condition: |
+      and(
+        succeeded(),
+        eq(${{ parameters.shouldTest }}, true)
+      )
+    inputs:
+      command: test
+      projects: ${{ parameters.projectParentFolderPath }}/${{ parameters.projectFolderName }}/*.Test?(s)/*.csproj
+      arguments: --no-restore --configuration ${{ parameters.buildConfiguration }} --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+      publishTestResults: true
+
+  - task: PublishCodeCoverageResults@2
+    displayName: 'Publish code coverage'
+    inputs:
+      codeCoverageTool: 'Cobertura'
+      summaryFileLocation: '$(Agent.TempDirectory)/**/coverage.cobertura.xml'
+
+  - task: DotNetCoreCLI@2
+    displayName: Backend Publish
+    condition: |
+      and(
+        succeeded(),
+        eq(${{ parameters.shouldPublish }}, true)
+      )
+    inputs:
+      command: publish
+      publishWebProjects: false
+      projects: |
+        ${{ parameters.projectParentFolderPath }}/${{ parameters.projectFolderName }}/**/${{ parameters.entrypointProjectName }}.csproj
+      arguments: --no-restore --configuration ${{ parameters.buildConfiguration }} --output $(Build.ArtifactStagingDirectory)
+
+  - powershell: |
+      $zipFile = Get-ChildItem -Path $(Build.ArtifactStagingDirectory) -Filter "*.zip" | Select-Object -First 1
+      Rename-Item `
+        -Path $zipFile.FullName `
+        -NewName "${{ parameters.projectFolderName }}.zip"
+    displayName: Backend Rename zip file
+    condition: |
+      and(
+        succeeded(),
+        eq(${{ parameters.shouldPublish }}, true)
+      )
+    failOnStderr: true

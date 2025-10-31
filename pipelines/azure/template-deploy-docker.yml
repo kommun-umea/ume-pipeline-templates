@@ -1,0 +1,48 @@
+parameters:
+  - name: environment
+    type: string
+
+  - name: serviceConnection
+    type: string
+
+  - name: containerRegistryName
+    type: string
+
+  - name: imageName
+    type: string
+
+jobs:
+  - deployment: DeployDockerJob
+    displayName: Deploy to ${{ parameters.environment }}
+    environment: ${{ parameters.environment }}
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+            - task: AzureCLI@2
+              displayName: Login to Container Registry
+              inputs:
+                azureSubscription: ${{  parameters.serviceConnection }}
+                scriptType: bash
+                scriptLocation: inlineScript
+                inlineScript: |
+                  az acr login --name ${{ parameters.containerRegistryName }}
+
+            - task: DownloadPipelineArtifact@2
+              displayName: Download Docker Image
+              inputs:
+                artifactName: ${{ parameters.imageName }}
+                targetPath: $(Pipeline.Workspace)
+
+            - script: |
+                docker load -i $(Pipeline.Workspace)/${{ parameters.imageName }}.tar
+              displayName: Load Docker Image
+
+            - task: Docker@2
+              displayName: Push Docker Image
+              inputs:
+                command: push
+                repository: ${{ parameters.containerRegistryName }}.azurecr.io/${{ parameters.imageName }}
+                tags: |
+                  $(Build.BuildId)
+                  latest

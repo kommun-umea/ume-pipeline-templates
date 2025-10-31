@@ -1,0 +1,36 @@
+parameters:
+  - name: condition
+    type: string
+    default: succeeded()
+
+  - name: jobName
+    type: string
+    default: ''
+
+  - name: templateRepoAlias
+    type: string
+
+  - name: buildId
+    type: string
+
+  - name: tag
+    type: string
+
+jobs:
+  - job: Tag${{ parameters.jobName }}BuildJob
+    displayName: Tag ${{ parameters.jobName }} Build
+    condition: ${{ parameters.condition }}
+    steps:
+      - checkout: ${{ parameters.templateRepoAlias }}
+        path: templates
+
+      - task: PowerShell@2
+        displayName: Tag ${{ parameters.jobName }} Build
+        name: TagBuildTask
+        inputs:
+          targetType: filePath
+          filePath: $(Pipeline.Workspace)/templates/pipelines/release/scripts/tag-build.ps1
+        env:
+          SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+          BUILD_ID: ${{ parameters.buildId }}
+          TAG: ${{ parameters.tag }}

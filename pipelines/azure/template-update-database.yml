@@ -1,0 +1,58 @@
+parameters:
+  - name: environment
+    type: string
+
+  - name: azureSubscription
+    type: string
+
+  - name: projectFolderName
+    type: string
+
+  - name: startupProjectName
+    type: string
+
+  - name: databaseProjectName
+    type: string
+
+  - name: projectParentFolderPath
+    type: string
+    default: src
+
+jobs:
+  - deployment: UpdateDatabaseJob
+    displayName: Update Database in ${{ parameters.environment }}
+    environment: ${{ parameters.environment }}
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+            - checkout: self
+
+            - task: DotNetCoreCLI@2
+              displayName: New Tool Manifest
+              inputs:
+                command: custom
+                custom: new
+                arguments: tool-manifest
+
+            - task: NuGetAuthenticate@1
+              displayName: Authenticate to NuGet
+
+            - task: DotNetCoreCLI@2
+              displayName: Install dotnet-ef
+              inputs:
+                command: custom
+                custom: tool
+                arguments: install dotnet-ef
+                nugetConfigPath: NuGet.Config
+
+            - task: AzureCLI@2
+              displayName: Update Database
+              inputs:
+                azureSubscription: ${{ parameters.azureSubscription }}
+                scriptType: bash
+                scriptLocation: inlineScript
+                workingDirectory: ${{ parameters.projectParentFolderPath }}/${{ parameters.projectFolderName }}
+                inlineScript: |
+                  export ASPNETCORE_ENVIRONMENT=${{ parameters.environment }}
+                  dotnet ef database update --project ${{ parameters.databaseProjectName }} --startup-project ${{ parameters.startupProjectName }}

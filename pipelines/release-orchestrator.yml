@@ -1,0 +1,96 @@
+name: $(buildName)_$(Date:yyyy-MM-ddTHH.mm.ss)
+
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: ubuntu-latest
+
+resources:
+  repositories:
+    - repository: templates
+      type: git
+      name: Turkos/ume-pipeline-templates
+      ref: $(Build.SourceBranch)
+
+variables:
+  - template: general/template-default-pipeline-variables.yml
+    parameters:
+      environment: prod
+
+  - template: release/template-release-orchestrator-variables.yml
+
+  - name: templateRepoAlias
+    value: templates
+
+stages:
+  - stage: ValidateRequestStage
+    displayName: Validate Request
+    jobs:
+      - template: general/template-fail-on-condition.yml
+        parameters:
+          failCondition: >-
+            and(
+              eq(variables['isNewRelease'], false),
+              eq(variables['environment'], 'prod')
+            )
+          errorMessage: Manual releases to production are not allowed. To create a new release, merge a pull request to main.
+          displayName: Fail on manual release to production
+
+  - stage: GetPullRequestStage
+    displayName: Get Pull Request
+    dependsOn: ValidateRequestStage
+    condition: not(or(failed(), canceled()))
+    jobs:
+      - template: release/template-get-pullrequest.yml
+        parameters:
+          templateRepoAlias: ${{ variables.templateRepoAlias }}
+
+  - stage: GenerateReleaseTagStage
+    displayName: Generate Release Tag
+    dependsOn: GetPullRequestStage
+    condition: not(or(failed(), canceled()))
+    variables:
+      ticketIds: $[ stageDependencies.GetPullRequestStage.GetPullRequestJob.outputs['Task.PULLREQUEST_TICKET_IDS'] ]
+    jobs:
+      - template: release/template-generate-release-tag.yml
+        parameters:
+          templateRepoAlias: ${{ variables.templateRepoAlias }}
+          ticketIds: $(ticketIds)
+
+  - stage: InitializeReleaseStage
+    displayName: Initialize Release
+    dependsOn:
+      - GenerateReleaseTagStage
+      - GetPullRequestStage
+    condition: not(or(failed(), canceled()))
+    variables:
+      releaseTag: $[ stageDependencies.GenerateReleaseTagStage.GenerateReleaseTagJob.outputs['Task.RELEASE_TAG'] ]
+      ticketIds: $[ stageDependencies.GetPullRequestStage.GetPullRequestJob.outputs['Task.PULLREQUEST_TICKET_IDS'] ]
+    jobs:
+      - template: release/template-initialize-release.yml
+        parameters:
+          templateRepoAlias: ${{ variables.templateRepoAlias }}
+          ticketIds: $(ticketIds)
+          tag: $(releaseTag)
+
+  - stage: FinalizeReleaseStage
+    displayName: Finalize Release
+    dependsOn:
+      - GenerateReleaseTagStage
+      - GetPullRequestStage
+      - InitializeReleaseStage
+    condition: in(dependencies.InitializeReleaseStage.result, 'Succeeded', 'Failed')
+    variables:
+      releaseTag: $[ stageDependencies.GenerateReleaseTagStage.GenerateReleaseTagJob.outputs['Task.RELEASE_TAG'] ]
+      ticketIds: $[ stageDependencies.GetPullRequestStage.GetPullRequestJob.outputs['Task.PULLREQUEST_TICKET_IDS'] ]
+      deploymentJobResult: 'Succeeded'
+    jobs:
+      - template: release/template-finalize-release.yml
+        parameters:
+          templateRepoAlias: ${{ variables.templateRepoAlias }}
+          ticketIds: $(ticketIds)
+          tag: $(releaseTag)
+          deploymentBuildId: $(Build.BuildId)

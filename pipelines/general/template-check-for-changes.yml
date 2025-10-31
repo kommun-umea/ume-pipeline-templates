@@ -1,0 +1,55 @@
+parameters:
+  - name: comparisonBranch
+    type: string
+    default: HEAD~
+
+  - name: paths
+    type: object
+    default: []
+
+jobs:
+  - job: Job
+    displayName: Check for changed paths
+    steps:
+      - checkout: self
+        fetchDepth: 0
+
+      - task: PowerShell@2
+        displayName: Run check for changes script
+        name: Task
+        inputs:
+          targetType: inline
+          script: |
+            $paths = '${{ convertToJson(parameters.paths) }}' | ConvertFrom-Json
+            Write-Host "[Ume]: Checking changed paths..."
+
+            if (Test-Path changedPaths.txt) {
+              Remove-Item changedPaths.txt
+            }
+            New-Item -ItemType File -Path changedPaths.txt | Out-Null
+
+            foreach ($path in $paths) {
+              Write-Host "[Ume]: Checking path: $path"
+              $gitDiff = git diff ${{ parameters.comparisonBranch }} HEAD --name-only -- "$path"
+              $isPathChanged = $gitDiff.Length -ne 0
+
+              if ($isPathChanged) {
+                Add-Content -Path changedPaths.txt -Value "$path"
+              }
+            }
+
+            Write-Host "---"
+
+            $detectedChangedPaths = (Get-Content -Path changedPaths.txt) -join ', '
+
+            if ([string]::IsNullOrEmpty($detectedChangedPaths)) {
+              Write-Host "[Ume]: No changes detected"
+            } else {
+              Write-Host "[Ume]: Detected changed paths:"
+              Write-Host $detectedChangedPaths
+            }
+
+            Write-Host "---"
+
+            Write-Host "##vso[task.setvariable variable=CHANGED_PATHS;isOutput=true]$detectedChangedPaths"
+            Write-Host "Set output variable: CHANGED_PATHS = '$detectedChangedPaths'"

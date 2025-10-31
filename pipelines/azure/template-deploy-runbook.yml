@@ -1,0 +1,79 @@
+parameters:
+  - name: environment
+    type: string
+
+  - name: templateRepoAlias
+    type: string
+
+  - name: azureSubscription
+    type: string
+
+  - name: automationAccountName
+    type: string
+
+  - name: resourceGroupName
+    type: string
+
+  - name: runbookName
+    type: string
+
+  - name: runbookParentFolderPath
+    type: string
+    default: src/runbooks
+
+  - name: scheduleName
+    type: string
+    default: ''
+
+  - name: shouldLinkSchedule
+    type: boolean
+    default: true
+
+jobs:
+  - deployment: DeployRunbookJob
+    displayName: Deploy to ${{ parameters.environment }}
+    environment: ${{ parameters.environment }}
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+            - checkout: self
+              path: self
+
+            - checkout: ${{ parameters.templateRepoAlias }}
+              path: templates
+
+            - task: AzureCLI@2
+              name: DeployRunbookTask
+              inputs:
+                azureSubscription: ${{ parameters.azureSubscription }}
+                scriptType: pscore
+                scriptLocation: scriptPath
+                scriptPath: $(Pipeline.Workspace)/templates/pipelines/azure/scripts/deploy-runbook.ps1
+                arguments: >
+                  -automationAccountName ${{ parameters.automationAccountName }}
+                  -resourceGroupName ${{ parameters.resourceGroupName }}
+                  -runbookPath $(Pipeline.Workspace)/self/${{ parameters.runbookParentFolderPath }}/${{ parameters.runbookName }}.ps1
+                  -runbookName ${{ parameters.runbookName }}
+                  -environment ${{ parameters.environment }}
+
+  - job: UpdateRunbookScheduleLinkJob
+    dependsOn: DeployRunbookJob
+    displayName: Update Runbook Schedule Link
+    steps:
+      - checkout: ${{ parameters.templateRepoAlias }}
+        path: templates
+
+      - task: AzurePowershell@5
+        name: UpdateRunbookScheduleLinkTask
+        inputs:
+          azureSubscription: ${{ parameters.azureSubscription }}
+          ScriptType: FilePath
+          ScriptPath: $(Pipeline.Workspace)/templates/pipelines/azure/scripts/update-runbook-schedule-link.ps1
+          ScriptArguments: |
+            -automationAccountName ${{ parameters.automationAccountName }} `
+            -resourceGroupName ${{ parameters.resourceGroupName }} `
+            -runbookResourceName ${{ parameters.runbookName }}-${{ parameters.environment }} `
+            -scheduleName "${{ parameters.scheduleName }}" `
+            -shouldLinkSchedule ${{ parameters.shouldLinkSchedule }}
+          azurePowerShellVersion: 'LatestVersion'

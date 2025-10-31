@@ -1,0 +1,50 @@
+parameters:
+  - name: environment
+    type: string
+
+  - name: serviceConnection
+    type: string
+
+  - name: keyVaultName
+    type: string
+
+  - name: certificateName
+    type: string
+
+  - name: certificatePassword
+    type: string
+
+jobs:
+  - deployment: UploadCertificateToKeyVaultJob
+    displayName: Upload Certificate to Key Vault in ${{ parameters.environment }}
+    environment: ${{ parameters.environment }}
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+            - checkout: none
+
+            - task: DownloadSecureFile@1
+              name: DownloadCertificateTask
+              inputs:
+                secureFile: ${{ parameters.certificateName }}.pfx
+
+            - task: AzureCLI@2
+              name: UploadCertificateToKeyVaultTask
+              inputs:
+                azureSubscription: ${{ parameters.serviceConnection }}
+                scriptType: pscore
+                scriptLocation: inlineScript
+                inlineScript: |
+                  Write-Host "[Ume]: Certificate = [${{ parameters.certificateName }}.pfx]"
+                  Write-Host "[Ume]: Key Vault = [${{ parameters.keyVaultName }}]"
+                  Write-Host "[Ume]: Uploading certificate to key vault..."
+
+                  az keyvault certificate import `
+                    --vault-name ${{ parameters.keyVaultName }} `
+                    --name ${{ parameters.certificateName }} `
+                    --file $(DownloadCertificateTask.secureFilePath) `
+                    --password '${{ parameters.certificatePassword }}' `
+                    --output none
+
+                  Write-Host "[Ume]: Finished!"

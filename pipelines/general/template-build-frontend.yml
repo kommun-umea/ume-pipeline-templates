@@ -1,0 +1,59 @@
+parameters:
+  - name: environment
+    type: string
+
+  - name: projectFolderName
+    type: string
+
+  - name: projectParentFolderPath
+    type: string
+    default: src
+
+  - name: shouldTest
+    type: boolean
+    default: true
+
+  - name: shouldLint
+    type: boolean
+    default: true
+
+steps:
+  - task: Npm@1
+    displayName: Frontend Install
+    inputs:
+      command: install
+      workingDir: ${{ parameters.projectParentFolderPath }}/${{ parameters.projectFolderName }}
+      verbose: true
+
+  - task: Npm@1
+    displayName: Frontend Test
+    condition: |
+      and(
+        succeeded(),
+        eq(${{ parameters.shouldTest }}, true)
+      )
+    inputs:
+      command: custom
+      customCommand: run test
+      workingDir: ${{ parameters.projectParentFolderPath }}/${{ parameters.projectFolderName }}
+      verbose: true
+
+  - task: Npm@1
+    displayName: Frontend Lint
+    condition: |
+      and(
+        succeeded(),
+        eq(${{ parameters.shouldLint }}, true)
+      )
+    inputs:
+      command: custom
+      customCommand: run lint
+      workingDir: ${{ parameters.projectParentFolderPath }}/${{ parameters.projectFolderName }}
+      verbose: true
+
+  - task: Npm@1
+    displayName: Frontend Build
+    inputs:
+      command: custom
+      customCommand: run build -- --mode=${{ parameters.environment }}
+      workingDir: ${{ parameters.projectParentFolderPath }}/${{ parameters.projectFolderName }}

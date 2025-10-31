@@ -1,0 +1,66 @@
+parameters:
+  - name: frontendEnvironment
+    type: string
+
+  - name: frontendProjectFolderName
+    type: string
+
+  - name: frontendProjectParentFolderPath
+    type: string
+
+  - name: frontendShouldTest
+    type: boolean
+    default: true
+
+  - name: frontendShouldLint
+    type: boolean
+    default: true
+
+
+  - name: backendProjectFolderName
+    type: string
+
+  - name: backendEntrypointProjectName
+    type: string
+
+  - name: backendProjectParentFolderPath
+    type: string
+    default: src
+
+  - name: backendBuildConfiguration
+    type: string
+    default: Release
+    values:
+      - Debug
+      - Release
+
+  - name: backendDotnetVersion
+    type: string
+    default: 8.0.x
+
+  - name: backendShouldTest
+    type: boolean
+    default: true
+
+  - name: backendShouldPublish
+    type: boolean
+    default: true
+
+steps:
+  - template: template-build-frontend.yml
+    parameters:
+      environment: ${{ parameters.frontendEnvironment }}
+      projectFolderName: ${{ parameters.frontendProjectFolderName }}
+      projectParentFolderPath: ${{ parameters.frontendProjectParentFolderPath }}
+      shouldTest: ${{ parameters.frontendShouldTest }}
+      shouldLint: ${{ parameters.frontendShouldLint }}
+
+  - template: template-build-backend.yml
+    parameters:
+      projectFolderName: ${{ parameters.backendProjectFolderName }}
+      entrypointProjectName: ${{ parameters.backendEntrypointProjectName }}
+      projectParentFolderPath: ${{ parameters.backendProjectParentFolderPath }}
+      buildConfiguration: ${{ parameters.backendBuildConfiguration }}
+      dotnetVersion: ${{ parameters.backendDotnetVersion }}
+      shouldTest: ${{ parameters.backendShouldTest }}
+      shouldPublish: ${{ parameters.backendShouldPublish }}

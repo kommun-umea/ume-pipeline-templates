@@ -1,0 +1,44 @@
+parameters:
+  - name: templateRepoAlias
+    type: string
+
+  - name: userName
+    type: string
+
+  - name: userEmail
+    type: string
+
+  - name: commitId
+    type: string
+
+  - name: tag
+    type: string
+
+  - name: tagMessage
+    type: string
+
+jobs:
+  - job: TagCommitJob
+    displayName: Tag Commit
+    steps:
+      - checkout: self
+        path: source
+        persistCredentials: true
+
+      - checkout: ${{ parameters.templateRepoAlias }}
+        path: templates
+
+      - task: PowerShell@2
+        displayName: Tag Commit
+        name: TagCommitTask
+        inputs:
+          targetType: filePath
+          filePath: $(Pipeline.Workspace)/templates/pipelines/release/scripts/tag-commit.ps1
+          workingDirectory: $(Pipeline.Workspace)/source
+        env:
+          SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+          USER_NAME: ${{ parameters.userName }}
+          USER_EMAIL: ${{ parameters.userEmail }}
+          COMMIT_ID: ${{ parameters.commitId }}
+          TAG: ${{ parameters.tag }}
+          TAG_MESSAGE: ${{ parameters.tagMessage }}

@@ -1,0 +1,32 @@
+parameters:
+  - name: templateRepoAlias
+    type: string
+
+  - name: ticketIds
+    type: string
+
+  - name: tag
+    type: string
+
+jobs:
+  - template: template-tag-commit.yml
+    parameters:
+      templateRepoAlias: ${{ parameters.templateRepoAlias }}
+      userName: $(Build.RequestedFor)
+      userEmail: $(Build.RequestedForEmail)
+      commitId: $(Build.SourceVersion)
+      tag: ${{ parameters.tag }}
+      tagMessage: $(Build.SourceVersionMessage)
+
+  - template: template-tag-build.yml
+    parameters:
+      jobName: Current
+      templateRepoAlias: ${{ parameters.templateRepoAlias }}
+      buildId: $(Build.BuildId)
+      tag: ${{ parameters.tag }}
+
+  - template: template-initialize-release-tickets.yml
+    parameters:
+      templateRepoAlias: ${{ parameters.templateRepoAlias }}
+      tag: ${{ parameters.tag }}
+      ticketIds: ${{ parameters.ticketIds }}

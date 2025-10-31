@@ -1,0 +1,49 @@
+parameters:
+  - name: environment
+    type: string
+
+  - name: projectFolderName
+    type: string
+
+  - name: projectParentFolderPath
+    type: string
+    default: src
+    
+  - name: outputDirectory
+    type: string
+    default: wwwroot
+
+  - name: shouldTest
+    type: boolean
+    default: true
+
+  - name: shouldLint
+    type: boolean
+    default: true
+
+  - name: shouldPublish
+    type: boolean
+    default: true
+
+jobs:
+  - job: BuildFrontendJob
+    displayName: Build Frontend
+    steps:
+      - template: ../general/template-build-frontend.yml
+        parameters:
+          environment: ${{ parameters.environment }}
+          projectFolderName: ${{ parameters.projectFolderName }}
+          projectParentFolderPath: ${{ parameters.projectParentFolderPath }}
+          shouldTest: ${{ parameters.shouldTest }}
+          shouldLint: ${{ parameters.shouldLint }}
+
+      - task: PublishBuildArtifacts@1
+        displayName: Publish Build Artifact
+        condition: |
+          and(
+            succeeded(),
+            eq(${{ parameters.shouldPublish }}, true)
+          )
+        inputs:
+          pathToPublish: ${{ parameters.projectParentFolderPath }}/${{ parameters.projectFolderName }}/${{ parameters.outputDirectory }}
+          artifactName: ${{ parameters.projectFolderName }}

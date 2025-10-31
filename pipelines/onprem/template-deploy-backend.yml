@@ -1,0 +1,163 @@
+parameters:
+  - name: destinationPath
+    type: string
+
+  - name: projectFolderName
+    type: string
+
+  - name: internalHostUrl
+    type: string
+    default: ''
+
+  - name: externalHostUrl
+    type: string
+    default: ''
+
+  - name: pingEndpoints
+    type: object
+    default: []
+
+jobs:
+  - job: ValidateDirectoriesJob
+    displayName: Validate Directories
+    steps:
+      - checkout: none
+
+      - powershell: |
+          $backupDir = "${{ parameters.destinationPath }}/backup"
+          $wwwrootDir = "${{ parameters.destinationPath }}/wwwroot"
+          $tempDir = "${{ parameters.destinationPath }}/temp"
+
+          if (!(Test-Path $backupDir)) {
+              New-Item -ItemType Directory -Path $backupDir
+          }
+
+          if (!(Test-Path $wwwrootDir)) {
+              New-Item -ItemType Directory -Path $wwwrootDir
+          }
+
+          if (!(Test-Path $tempDir)) {
+              Write-Error "Temp directory containing build artifact was not found."
+          }
+        failOnStderr: true
+        displayName: Validate ${{ parameters.destinationPath }}
+
+  - job: DeployBackendJob
+    displayName: Deploy Backend
+    dependsOn: ValidateDirectoriesJob
+    steps:
+      - checkout: none
+
+      - template: helpers/template-disable-application.yml
+        parameters:
+          path: ${{ parameters.destinationPath }}
+
+      - template: helpers/template-clean-wwwroot.yml
+        parameters:
+          path: ${{ parameters.destinationPath }}
+
+      - task: ExtractFiles@1
+        displayName: Deploy application
+        inputs:
+          archiveFilePatterns: ${{ parameters.destinationPath }}/temp/${{ parameters.projectFolderName }}.zip
+          destinationFolder: ${{ parameters.destinationPath }}/wwwroot
+          cleanDestinationFolder: false
+
+      - template: helpers/template-enable-application.yml
+        parameters:
+          path: ${{ parameters.destinationPath }}
+
+      - ${{ if ne(parameters.internalHostUrl, '') }}:
+          - ${{ each pingEndpoint in parameters.pingEndpoints }}:
+              - template: ../general/helpers/template-ping.yml
+                parameters:
+                  hostUrl: ${{ parameters.internalHostUrl }}
+                  pingEndpoint: ${{ pingEndpoint }}
+                  pingType: Internal
+
+      - ${{ if ne(parameters.externalHostUrl, '') }}:
+          - ${{ each pingEndpoint in parameters.pingEndpoints }}:
+              - template: ../general/helpers/template-ping.yml
+                parameters:
+                  hostUrl: ${{ parameters.externalHostUrl }}
+                  pingEndpoint: ${{ pingEndpoint }}
+                  pingType: External
+
+  - job: RollbackDeploymentJob
+    displayName: Rollback Deployment
+    dependsOn: DeployBackendJob
+    condition: failed()
+    steps:
+      - checkout: none
+
+      - template: helpers/template-disable-application.yml
+        parameters:
+          path: ${{ parameters.destinationPath }}
+
+      - template: helpers/template-clean-wwwroot.yml
+        parameters:
+          path: ${{ parameters.destinationPath }}
+
+      - powershell: |
+          $backupPath = "${{ parameters.destinationPath }}/backup"
+          $tempBackupPath = "${{ parameters.destinationPath }}/temp/backup"
+          $latestBackup = Get-ChildItem -Path $backupPath |
+            Sort-Object -Property CreationTime -Descending |
+            Select-Object -First 1
+
+          if (!(Test-Path $tempBackupPath)) {
+            New-Item -ItemType Directory -Path $tempBackupPath
+          }
+          Remove-Item $tempBackupPath/* -Recurse -Force
+          Move-Item -Path $latestBackup.FullName -Destination $tempBackupPath
+        displayName: Move latest backup to temp directory
+        failOnStderr: true
+
+      - task: ExtractFiles@1
+        displayName: Deploy latest backup
+        inputs:
+          archiveFilePatterns: ${{ parameters.destinationPath }}/temp/backup/*.zip
+          destinationFolder: ${{ parameters.destinationPath }}/wwwroot
+          cleanDestinationFolder: false
+
+      - template: helpers/template-enable-application.yml
+        parameters:
+          path: ${{ parameters.destinationPath }}
+
+      - ${{ if ne(parameters.internalHostUrl, '') }}:
+          - ${{ each pingEndpoint in parameters.pingEndpoints }}:
+              - template: ../general/helpers/template-ping.yml
+                parameters:
+                  hostUrl: ${{ parameters.internalHostUrl }}
+                  pingEndpoint: ${{ pingEndpoint }}
+                  pingType: Internal
+
+      - ${{ if ne(parameters.externalHostUrl, '') }}:
+          - ${{ each pingEndpoint in parameters.pingEndpoints }}:
+              - template: ../general/helpers/template-ping.yml
+                parameters:
+                  hostUrl: ${{ parameters.externalHostUrl }}
+                  pingEndpoint: ${{ pingEndpoint }}
+                  pingType: External
+
+  - job: BackupDeploymentJob
+    displayName: Backup Deployment
+    dependsOn: DeployBackendJob
+    steps:
+      - checkout: none
+
+      - powershell: |
+          Write-Host "[Ume]: Adding datetime to deployment zip file name..."
+          $datetime = (Get-Date).ToString('yyyyMMddTHHmmss')
+
+          Rename-Item `
+            -Path ${{ parameters.destinationPath }}/temp/${{ parameters.projectFolderName }}.zip `
+            -NewName "${{ parameters.projectFolderName }}_$($datetime).zip"
+        displayName: Rename zip file
+        failOnStderr: true
+
+      - task: CopyFiles@2
+        inputs:
+          SourceFolder: ${{ parameters.destinationPath }}/temp
+          TargetFolder: ${{ parameters.destinationPath }}/backup/
+        displayName: Backup deployment

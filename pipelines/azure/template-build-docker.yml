@@ -1,0 +1,69 @@
+parameters:
+  - name: environment
+    type: string
+
+  - name: personalAccessToken
+    type: string
+
+  - name: projectFolderName
+    type: string
+
+  - name: containerRegistryName
+    type: string
+
+  - name: imageName
+    type: string
+
+  - name: projectParentFolderPath
+    type: string
+    default: src
+
+  - name: shouldTest
+    type: boolean
+    default: true
+
+  - name: shouldPublish
+    type: boolean
+    default: true
+
+jobs:
+  - job: BuildDockerJob
+    displayName: Build Docker
+    variables:
+      DOCKER_BUILDKIT: 1
+      imagePath: ${{ parameters.containerRegistryName }}.azurecr.io/${{ parameters.imageName }}
+    steps:
+      - task: Docker@2
+        displayName: Build Docker Image
+        inputs:
+          command: build
+          Dockerfile: ${{ parameters.projectParentFolderPath }}/${{ parameters.projectFolderName }}/Dockerfile
+          repository: ${{ variables.imagePath }}
+          tags: |
+            $(Build.BuildId)
+            latest
+          arguments:
+            --build-arg ENV=${{ parameters.environment }}
+            --build-arg PAT=${{ parameters.personalAccessToken }}
+            --build-arg SHOULD_TEST=${{ parameters.shouldTest }}
+
+      - script: |
+          docker tag ${{ variables.imagePath }}:$(Build.BuildId) ${{ variables.imagePath }}:latest
+          docker save ${{ variables.imagePath }}:$(Build.BuildId) ${{ variables.imagePath }}:latest -o ${{ parameters.imageName }}.tar
+        displayName: Tag & Save Docker Image
+        condition: |
+          and(
+            succeeded(),
+            eq(${{ parameters.shouldPublish }}, true)
+          )
+
+      - task: PublishPipelineArtifact@1
+        condition: |
+          and(
+            succeeded(),
+            eq(${{ parameters.shouldPublish }}, true)
+          )
+        inputs:
+          targetPath: ${{ parameters.imageName }}.tar
+          artifact: ${{ parameters.imageName }}
+          publishLocation: pipeline

@@ -1,0 +1,33 @@
+parameters:
+  - name: templateRepoAlias
+    type: string
+
+  - name: ticketIds
+    type: string
+
+  - name: tag
+    type: string
+
+  - name: deploymentBuildId
+    type: string
+
+jobs:
+  - template: template-tag-build.yml
+    parameters:
+      condition: ne(variables['deploymentBuildId'], '')
+      jobName: Deployment
+      templateRepoAlias: ${{ parameters.templateRepoAlias }}
+      buildId: ${{ parameters.deploymentBuildId }}
+      tag: ${{ parameters.tag }}
+
+  - template: template-finalize-successful-release-tickets.yml
+    parameters:
+      templateRepoAlias: ${{ parameters.templateRepoAlias }}
+      tag: ${{ parameters.tag }}
+      ticketIds: ${{ parameters.ticketIds }}
+
+  - template: template-finalize-failed-release-tickets.yml
+    parameters:
+      templateRepoAlias: ${{ parameters.templateRepoAlias }}
+      failedTag: 'FAILED RELEASE'
+      ticketIds: ${{ parameters.ticketIds }}

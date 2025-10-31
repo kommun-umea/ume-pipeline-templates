@@ -1,0 +1,38 @@
+parameters:
+  - name: environment
+    type: string
+
+  - name: projectFolderName
+    type: string
+
+  - name: deploymentToken
+    type: string
+
+  - name: projectParentFolderPath
+    type: string
+    default: src
+
+  - name: outputDirectory
+    type: string
+    default: wwwroot
+
+jobs:
+  - deployment: DeployStaticWebAppJob
+    displayName: Deploy to ${{ parameters.environment }}
+    environment: ${{ parameters.environment }}
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+            - task: DownloadBuildArtifacts@1
+              displayName: Download Build Artifact
+              inputs:
+                artifactName: ${{ parameters.projectFolderName }}
+                downloadPath: ${{ parameters.projectParentFolderPath }}/${{ parameters.projectFolderName }}
+
+            - task: AzureStaticWebApp@0
+              displayName: Deploy Static Web App
+              inputs:
+                app_location: ${{ parameters.projectParentFolderPath }}/${{ parameters.projectFolderName }}/${{ parameters.projectFolderName }}
+                output_location: ${{ parameters.outputDirectory }}
+                azure_static_web_apps_api_token: ${{ parameters.deploymentToken }}
