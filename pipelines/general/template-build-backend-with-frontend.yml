@@ -36,7 +36,7 @@ parameters:
 
   - name: backendDotnetVersion
     type: string
-    default: 8.0.x
+    default: 10.0.x
 
   - name: backendShouldTest
     type: boolean

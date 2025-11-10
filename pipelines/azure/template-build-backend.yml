@@ -16,6 +16,10 @@ parameters:
       - Debug
       - Release
 
+  - name: dotnetVersion
+    type: string
+    default: 10.0.x
+
   - name: shouldTest
     type: boolean
     default: true
@@ -34,6 +38,7 @@ jobs:
           entrypointProjectName: ${{ parameters.entrypointProjectName }}
           projectParentFolderPath: ${{ parameters.projectParentFolderPath }}
           buildConfiguration: ${{ parameters.buildConfiguration }}
+          dotnetVersion: ${{ parameters.dotnetVersion }}
           shouldTest: ${{ parameters.shouldTest }}
           shouldPublish: ${{ parameters.shouldPublish }}
 
