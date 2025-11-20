@@ -94,3 +94,5 @@ stages:
           ticketIds: $(ticketIds)
           tag: $(releaseTag)
           deploymentBuildId: $(Build.BuildId)
+          githubRepository: ume-pipeline-templates
+          githubAccessToken: $(githubAccessToken)

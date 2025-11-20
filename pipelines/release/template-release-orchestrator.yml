@@ -1,3 +1,5 @@
+# Requires variables from template-release-orchestrator-variables.yml
+
 parameters:
   - name: templateRepoAlias
     type: string
@@ -9,6 +11,9 @@ parameters:
   - name: prodEnvironment
     type: string
     default: prod
+
+  - name: githubRepository
+    type: string
 
 stages:
   - stage: ValidateRequestStage
@@ -96,3 +101,5 @@ stages:
           ticketIds: $(ticketIds)
           tag: $(releaseTag)
           deploymentBuildId: $(deploymentBuildId)
+          githubRepository: ${{ parameters.githubRepository }}
+          githubAccessToken: $(githubAccessToken)

@@ -11,6 +11,12 @@ parameters:
   - name: deploymentBuildId
     type: string
 
+  - name: githubRepository
+    type: string
+
+  - name: githubAccessToken
+    type: string
+
 jobs:
   - template: template-tag-build.yml
     parameters:
@@ -19,6 +25,12 @@ jobs:
       templateRepoAlias: ${{ parameters.templateRepoAlias }}
       buildId: ${{ parameters.deploymentBuildId }}
       tag: ${{ parameters.tag }}
+
+  - template: template-sync-github-repository.yml
+    parameters:
+      templateRepoAlias: ${{ parameters.templateRepoAlias }}
+      repository: ${{ parameters.githubRepository }}
+      accessToken: ${{ parameters.githubAccessToken }}
 
   - template: template-finalize-successful-release-tickets.yml
     parameters:

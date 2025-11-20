@@ -19,3 +19,8 @@ variables:
           startsWith(variables['Build.SourceVersionMessage'], 'Merged PR')
         )
       }}
+
+  - group: ume-github-connection
+
+  - name: githubAccessToken
+    value: $(github-pat-turkos)

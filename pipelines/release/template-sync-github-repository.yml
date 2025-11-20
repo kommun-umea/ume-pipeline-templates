@@ -1,0 +1,53 @@
+parameters:
+- name: templateRepoAlias
+  type: string
+
+- name: accessToken
+  type: string
+
+- name: organization
+  type: string
+  default: kommun-umea
+
+- name: repository
+  type: string
+
+- name: branch
+  type: string
+  default: main
+
+- name: userName
+  type: string
+  default: 'Azure DevOps Turkos Pipeline'
+
+- name: userEmail
+  type: string
+  default: '153630697+umea-it@users.noreply.github.com'
+
+jobs:
+  - job: SyncGitHubRepositoryJob
+    displayName: Sync GitHub Repository
+    condition: startsWith(variables['deploymentJobResult'], 'Succeeded')
+    steps:
+      - checkout: self
+        path: source
+        persistCredentials: true
+        fetchDepth: 0
+
+      - checkout: ${{ parameters.templateRepoAlias }}
+        path: templates
+
+      - task: PowerShell@2
+        displayName: Sync GitHub Repository
+        name: SyncGitHubRepositoryTask
+        inputs:
+          targetType: filePath
+          filePath: $(Pipeline.Workspace)/templates/pipelines/release/scripts/sync-github-repository.ps1
+          workingDirectory: $(Pipeline.Workspace)/source
+        env:
+          ACCESS_TOKEN: ${{ parameters.accessToken }}
+          ORGANIZATION: ${{ parameters.organization }}
+          REPOSITORY: ${{ parameters.repository }}
+          BRANCH: ${{ parameters.branch }}
+          USER_NAME: ${{ parameters.userName }}
+          USER_EMAIL: ${{ parameters.userEmail }}
