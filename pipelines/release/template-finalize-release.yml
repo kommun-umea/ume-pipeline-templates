@@ -29,6 +29,7 @@ jobs:
   - template: template-sync-github-repository.yml
     parameters:
       templateRepoAlias: ${{ parameters.templateRepoAlias }}
+      condition: startsWith(variables['deploymentJobResult'], 'Succeeded')
       repository: ${{ parameters.githubRepository }}
       accessToken: ${{ parameters.githubAccessToken }}
 

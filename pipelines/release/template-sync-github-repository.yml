@@ -2,6 +2,10 @@ parameters:
 - name: templateRepoAlias
   type: string
 
+- name: condition
+  type: string
+  default: succeeded()
+
 - name: accessToken
   type: string
 
@@ -27,7 +31,7 @@ parameters:
 jobs:
   - job: SyncGitHubRepositoryJob
     displayName: Sync GitHub Repository
-    condition: startsWith(variables['deploymentJobResult'], 'Succeeded')
+    condition: ${{ parameters.condition }}
     steps:
       - checkout: self
         path: source

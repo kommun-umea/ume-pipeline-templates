@@ -20,7 +20,4 @@ variables:
         )
       }}
 
-  - group: ume-github-connection
-
-  - name: githubAccessToken
-    value: $(github-pat-turkos)
+  - template: template-github-variables.yml
