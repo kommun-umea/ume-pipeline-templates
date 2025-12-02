@@ -41,7 +41,7 @@ jobs:
         inputs:
           targetType: filePath
           filePath: $(Pipeline.Workspace)/templates/pipelines/onprem/scripts/update-appsettings.ps1
-          arguments: |
-            -variableGroup "${{ parameters.variableGroup }}" `
-            -zipFilePath "${{ parameters.destinationPath }}/temp/${{ parameters.projectFolderName }}.zip" `
-            -personalAccessToken "$(System.AccessToken)"
+        env:
+          SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+          VARIABLE_GROUP: ${{ parameters.variableGroup }}
+          DESTINATION_PATH: ${{ parameters.destinationPath }}/temp/${{ parameters.projectFolderName }}.zip

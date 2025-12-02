@@ -1,11 +1,12 @@
 param (
-    [string]$variableGroup,
-    [string]$zipFilePath,
-    [string]$personalAccessToken,
     [string]$organizationName = 'umeakommun',
     [string]$projectName = 'turkos'
 )
 $ErrorActionPreference = 'Stop'
+
+$variableGroup = $env:VARIABLE_GROUP
+$zipFilePath = $env:DESTINATION_PATH
+$personalAccessToken = $env:SYSTEM_ACCESSTOKEN
 
 # Function to fetch variables from Azure DevOps
 function Get-VariableGroupValues {

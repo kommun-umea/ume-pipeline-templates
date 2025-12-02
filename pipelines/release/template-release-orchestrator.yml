@@ -15,6 +15,10 @@ parameters:
   - name: githubRepository
     type: string
 
+  - name: deploymentPipelineFilePath
+    type: string
+    default: pipelines/deployment.yml
+
 stages:
   - stage: ValidateRequestStage
     displayName: Validate Request
@@ -79,7 +83,7 @@ stages:
         parameters:
           templateRepoAlias: ${{ parameters.templateRepoAlias }}
           environment: ${{ parameters.environment }}
-          pipelineFilePath: pipelines/deployment.yml
+          pipelineFilePath: ${{ parameters.deploymentPipelineFilePath }}
           sourceTag: $(releaseTag)
 
   - stage: FinalizeReleaseStage
