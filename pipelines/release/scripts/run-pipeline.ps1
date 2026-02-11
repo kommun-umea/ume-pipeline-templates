@@ -12,6 +12,11 @@ $commitId = $env:BUILD_SOURCEVERSION
 $tag = $env:BUILD_SOURCETAG
 $devopsBaseUrl = $env:SYSTEM_COLLECTIONURI
 $projectName = $env:SYSTEM_TEAMPROJECT
+$user = $env:BUILD_REQUESTEDFOR
+$releaseTitle = $env:BUILD_SOURCEVERSIONMESSAGE
+$releaseTag = $env:RELEASETAG
+$repositoryName = $env:PIPELINE_REPOSITORY_NAME
+$logicAppPendingReleaseNotificationUrl = $env:LOGIC_APP_PENDING_RELEASE_NOTIFICATION_URL # ume-logic-releaseapprovalnotification from library
 
 if ([string]::IsNullOrWhiteSpace($accessToken)) {
     ThrowError("Personal Access Token is not provided.")
@@ -39,6 +44,18 @@ if ([string]::IsNullOrWhiteSpace($devopsBaseUrl)) {
 }
 if ([string]::IsNullOrWhiteSpace($projectName)) {
     ThrowError("Project Name is not provided.")
+}
+if ([string]::IsNullOrWhiteSpace($user)) {
+    ThrowError("User is not provided.")
+}
+if ([string]::IsNullOrWhiteSpace($releaseTitle)) {
+    ThrowError("Release Title is not provided.")
+}
+if ([string]::IsNullOrWhiteSpace($releaseTag)) {
+    ThrowError("Release Tag is not provided.")
+}
+if ([string]::IsNullOrWhiteSpace($repositoryName)) {
+    ThrowError("Repository Name is not provided.")
 }
 
 $authenticationHeader = @{
@@ -93,8 +110,20 @@ do {
         if ($pipelineRunPendingApproval) {
             $message = "Pipeline is waiting for approval. Approve it here: $($pipelineRun._links.web.href)"
             Write-Host "##vso[task.logissue type=warning;]$message" # Information log doesn't exist in DevOps
-            Write-Host "Pending approval notification sent."
 
+            if (($environment -eq 'prod') -and ($null -ne $logicAppPendingReleaseNotificationUrl)) {
+                $payloadObject = @{
+                    approvalUrl    = $pipelineRun._links.web.href
+                    user           = $user
+                    repositoryName = $repositoryName
+                    releaseTitle   = $releaseTitle
+                    releaseTag     = $releaseTag
+                }
+                $jsonBody = $payloadObject | ConvertTo-Json -Depth 10
+                $response = Invoke-RestMethod -Method Post -Uri $logicAppPendingReleaseNotificationUrl -ContentType "application/json" -Body $jsonBody
+            }
+
+            Write-Host "Pending approval notification sent."
             $isApprovalNotified = $true
         }
     }

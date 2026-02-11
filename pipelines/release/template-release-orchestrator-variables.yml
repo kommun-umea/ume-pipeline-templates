@@ -21,3 +21,6 @@ variables:
       }}
 
   - template: template-github-variables.yml
+
+  - group: ume-logic-releaseapprovalnotification
+  
