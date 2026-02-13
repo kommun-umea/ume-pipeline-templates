@@ -18,6 +18,21 @@ parameters:
     type: string
     default: src
 
+  - name: buildConfiguration
+    type: string
+    default: Release
+    values:
+      - Debug
+      - Release
+
+  - name: dotnetVersion
+    type: string
+    default: 10.0.x
+
+  - name: shouldTest
+    type: boolean
+    default: true
+
 jobs:
   - deployment: UpdateDatabaseJob
     displayName: Update Database in ${{ parameters.environment }}
@@ -27,6 +42,17 @@ jobs:
         deploy:
           steps:
             - checkout: self
+              clean: true
+
+            - template: ../general/template-build-backend.yml
+              parameters:
+                projectFolderName: ${{ parameters.projectFolderName }}
+                entrypointProjectName: ${{ parameters.startupProjectName }}
+                projectParentFolderPath: ${{ parameters.projectParentFolderPath }}
+                buildConfiguration: ${{ parameters.buildConfiguration }}
+                dotnetVersion: ${{ parameters.dotnetVersion }}
+                shouldTest: ${{ parameters.shouldTest }}
+                shouldPublish: false
 
             - task: DotNetCoreCLI@2
               displayName: New Tool Manifest
@@ -34,9 +60,6 @@ jobs:
                 command: custom
                 custom: new
                 arguments: tool-manifest
-
-            - task: NuGetAuthenticate@1
-              displayName: Authenticate to NuGet
 
             - task: DotNetCoreCLI@2
               displayName: Install dotnet-ef
@@ -55,4 +78,8 @@ jobs:
                 workingDirectory: ${{ parameters.projectParentFolderPath }}/${{ parameters.projectFolderName }}
                 inlineScript: |
                   export ASPNETCORE_ENVIRONMENT=${{ parameters.environment }}
-                  dotnet ef database update --project ${{ parameters.databaseProjectName }} --startup-project ${{ parameters.startupProjectName }}
+                  dotnet ef database update \
+                    --project ${{ parameters.databaseProjectName }} \
+                    --startup-project ${{ parameters.startupProjectName }} \
+                    --no-build \
+                    --configuration ${{ parameters.buildConfiguration }}

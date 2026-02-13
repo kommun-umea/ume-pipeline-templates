@@ -14,101 +14,154 @@ parameters:
   - name: projectFolderName
     type: string
 
+  - name: withStageSlot
+    type: boolean
+    default: true
+
   - name: pingEndpoints
     type: object
     default: []
 
+  - name: maxPingRetries
+    type: number
+    default: 3
+
 jobs:
-  - job: StartStageJob
-    displayName: Start Stage
-    steps:
-      - checkout: none
-
-      - task: AzureAppServiceManage@0
+  # Deploy with stage slot (blue-green deployment)
+  - ${{ if eq(parameters.withStageSlot, true) }}:
+      - job: StartStageJob
         displayName: Start Stage
-        inputs:
-          azureSubscription: ${{ parameters.azureSubscription }}
-          Action: Start Azure App Service
-          WebAppName: ${{ parameters.appName }}
-          SpecifySlotOrASE: true
-          ResourceGroupName: ${{ parameters.resourceGroup }}
-          Slot: stage
+        steps:
+          - checkout: none
 
-  - deployment: DeployStageJob
-    dependsOn: StartStageJob
-    displayName: Deploy to ${{ parameters.environment }}
-    environment: ${{ parameters.environment }}
-    strategy:
-      runOnce:
-        deploy:
-          steps:
-            - task: DownloadBuildArtifacts@1
-              displayName: Download the build artifacts
-              inputs:
-                buildType: current
-                downloadType: single
-                artifactName: ${{ parameters.projectFolderName }}
-                downloadPath: $(System.DefaultWorkingDirectory)
+          - task: AzureAppServiceManage@0
+            displayName: Start Stage
+            inputs:
+              azureSubscription: ${{ parameters.azureSubscription }}
+              Action: Start Azure App Service
+              WebAppName: ${{ parameters.appName }}
+              SpecifySlotOrASE: true
+              ResourceGroupName: ${{ parameters.resourceGroup }}
+              Slot: stage
 
-            - task: AzureRmWebAppDeployment@4
-              displayName: Deploy to Stage
-              inputs:
-                azureSubscription: ${{ parameters.azureSubscription }}
-                WebAppName: ${{ parameters.appName }}
-                deployToSlotOrASE: true
-                ResourceGroupName: ${{ parameters.resourceGroup }}
-                SlotName: stage
-                packageForLinux: $(System.DefaultWorkingDirectory)/${{ parameters.projectFolderName }}/${{ parameters.projectFolderName }}.zip
-                enableCustomDeployment: true
-                DeploymentType: runFromZip
+      - deployment: DeployStageJob
+        dependsOn: StartStageJob
+        displayName: Deploy to ${{ parameters.environment }}
+        environment: ${{ parameters.environment }}
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: DownloadBuildArtifacts@1
+                  displayName: Download the build artifacts
+                  inputs:
+                    buildType: current
+                    downloadType: single
+                    artifactName: ${{ parameters.projectFolderName }}
+                    downloadPath: $(System.DefaultWorkingDirectory)
 
-  - job: PingStageJob
-    dependsOn: DeployStageJob
-    displayName: Ping Stage ${{ parameters.appName }}
-    steps:
-      - checkout: none
+                - task: AzureRmWebAppDeployment@4
+                  displayName: Deploy to Stage
+                  inputs:
+                    azureSubscription: ${{ parameters.azureSubscription }}
+                    WebAppName: ${{ parameters.appName }}
+                    deployToSlotOrASE: true
+                    ResourceGroupName: ${{ parameters.resourceGroup }}
+                    SlotName: stage
+                    packageForLinux: $(System.DefaultWorkingDirectory)/${{ parameters.projectFolderName }}/${{ parameters.projectFolderName }}.zip
+                    enableCustomDeployment: true
+                    DeploymentType: runFromZip
 
-      - ${{ each pingEndpoint in parameters.pingEndpoints }}:
-          - template: ../general/helpers/template-ping.yml
-            parameters:
-              hostUrl: https://${{ parameters.appName }}-stage.azurewebsites.net
-              pingEndpoint: ${{ pingEndpoint }}
-              pingType: Cloud
+      - job: PingStageJob
+        dependsOn: DeployStageJob
+        displayName: Ping Stage ${{ parameters.appName }}
+        steps:
+          - checkout: none
 
-  - job: SwapSlotsAndStopStageJob
-    dependsOn: PingStageJob
-    displayName: Swap Slots and Stop Stage
-    steps:
-      - checkout: none
+          - ${{ each pingEndpoint in parameters.pingEndpoints }}:
+              - template: ../general/helpers/template-ping.yml
+                parameters:
+                  hostUrl: https://${{ parameters.appName }}-stage.azurewebsites.net
+                  pingEndpoint: ${{ pingEndpoint }}
+                  pingType: Cloud
+                  maxRetries: ${{ parameters.maxPingRetries }}
 
-      - task: AzureAppServiceManage@0
-        displayName: Swap Slots Stage with Production
-        inputs:
-          azureSubscription: ${{ parameters.azureSubscription }}
-          Action: Swap Slots
-          WebAppName: ${{ parameters.appName }}
-          ResourceGroupName: ${{ parameters.resourceGroup }}
-          SourceSlot: stage
+      - job: SwapSlotsAndStopStageJob
+        dependsOn: PingStageJob
+        displayName: Swap Slots and Stop Stage
+        steps:
+          - checkout: none
 
-      - task: AzureAppServiceManage@0
-        displayName: Stop Stage
-        inputs:
-          azureSubscription: ${{ parameters.azureSubscription }}
-          Action: Stop Azure App Service
-          WebAppName: ${{ parameters.appName }}
-          SpecifySlotOrASE: true
-          ResourceGroupName: ${{ parameters.resourceGroup }}
-          Slot: stage
+          - task: AzureAppServiceManage@0
+            displayName: Swap Slots Stage with Production
+            inputs:
+              azureSubscription: ${{ parameters.azureSubscription }}
+              Action: Swap Slots
+              WebAppName: ${{ parameters.appName }}
+              ResourceGroupName: ${{ parameters.resourceGroup }}
+              SourceSlot: stage
 
-  - job: PingJob
-    dependsOn: SwapSlotsAndStopStageJob
-    displayName: Ping ${{ parameters.appName }}
-    steps:
-      - checkout: none
+          - task: AzureAppServiceManage@0
+            displayName: Stop Stage
+            inputs:
+              azureSubscription: ${{ parameters.azureSubscription }}
+              Action: Stop Azure App Service
+              WebAppName: ${{ parameters.appName }}
+              SpecifySlotOrASE: true
+              ResourceGroupName: ${{ parameters.resourceGroup }}
+              Slot: stage
 
-      - ${{ each pingEndpoint in parameters.pingEndpoints }}:
-          - template: ../general/helpers/template-ping.yml
-            parameters:
-              hostUrl: https://${{ parameters.appName }}.azurewebsites.net
-              pingEndpoint: ${{ pingEndpoint }}
-              pingType: Cloud
+      - job: PingJob
+        dependsOn: SwapSlotsAndStopStageJob
+        displayName: Ping ${{ parameters.appName }}
+        steps:
+          - checkout: none
+
+          - ${{ each pingEndpoint in parameters.pingEndpoints }}:
+              - template: ../general/helpers/template-ping.yml
+                parameters:
+                  hostUrl: https://${{ parameters.appName }}.azurewebsites.net
+                  pingEndpoint: ${{ pingEndpoint }}
+                  pingType: Cloud
+                  maxRetries: ${{ parameters.maxPingRetries }}
+
+  # Deploy directly to production (no stage slot)
+  - ${{ if eq(parameters.withStageSlot, false) }}:
+      - deployment: DeployProductionJob
+        displayName: Deploy to ${{ parameters.environment }}
+        environment: ${{ parameters.environment }}
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: DownloadBuildArtifacts@1
+                  displayName: Download the build artifacts
+                  inputs:
+                    buildType: current
+                    downloadType: single
+                    artifactName: ${{ parameters.projectFolderName }}
+                    downloadPath: $(System.DefaultWorkingDirectory)
+
+                - task: AzureRmWebAppDeployment@4
+                  displayName: Deploy to Production
+                  inputs:
+                    azureSubscription: ${{ parameters.azureSubscription }}
+                    WebAppName: ${{ parameters.appName }}
+                    ResourceGroupName: ${{ parameters.resourceGroup }}
+                    packageForLinux: $(System.DefaultWorkingDirectory)/${{ parameters.projectFolderName }}/${{ parameters.projectFolderName }}.zip
+                    enableCustomDeployment: true
+                    DeploymentType: runFromZip
+
+      - job: PingJob
+        dependsOn: DeployProductionJob
+        displayName: Ping ${{ parameters.appName }}
+        steps:
+          - checkout: none
+
+          - ${{ each pingEndpoint in parameters.pingEndpoints }}:
+              - template: ../general/helpers/template-ping.yml
+                parameters:
+                  hostUrl: https://${{ parameters.appName }}.azurewebsites.net
+                  pingEndpoint: ${{ pingEndpoint }}
+                  pingType: Cloud
+                  maxRetries: ${{ parameters.maxPingRetries }}

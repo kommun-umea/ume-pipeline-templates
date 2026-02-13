@@ -38,7 +38,7 @@ steps:
           }
 
           $response = Invoke-WebRequest -Uri $pingUrl -UseBasicParsing -TimeoutSec 10
-          if ($response.StatusDescription -eq 'OK') {
+          if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 300) {
             Write-Host "[Ume]: Ping successful!"
             $success = $true
             break

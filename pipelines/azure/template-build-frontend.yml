@@ -8,10 +8,14 @@ parameters:
   - name: projectParentFolderPath
     type: string
     default: src
-    
+
   - name: outputDirectory
     type: string
     default: wwwroot
+
+  - name: apiDirectory
+    type: string
+    default: ''
 
   - name: shouldTest
     type: boolean
@@ -37,13 +41,32 @@ jobs:
           shouldTest: ${{ parameters.shouldTest }}
           shouldLint: ${{ parameters.shouldLint }}
 
+      - task: CopyFiles@2
+        displayName: Bundle wwwroot
+        inputs:
+          SourceFolder: ${{ parameters.projectParentFolderPath }}/${{ parameters.projectFolderName }}/${{ parameters.outputDirectory }}
+          Contents: '**'
+          TargetFolder: $(Build.ArtifactStagingDirectory)/deployment-bundle/${{ parameters.outputDirectory }}
+
+      - task: CopyFiles@2
+        displayName: Bundle api
+        condition: |
+          and(
+            succeeded(),
+            ne('${{ parameters.apiDirectory }}', '')
+          )
+        inputs:
+          SourceFolder: ${{ parameters.projectParentFolderPath }}/${{ parameters.projectFolderName }}/${{ parameters.apiDirectory }}
+          Contents: '**'
+          TargetFolder: $(Build.ArtifactStagingDirectory)/deployment-bundle/${{ parameters.apiDirectory }}
+
       - task: PublishBuildArtifacts@1
-        displayName: Publish Build Artifact
+        displayName: Publish Bundled Build Artifact
         condition: |
           and(
             succeeded(),
             eq(${{ parameters.shouldPublish }}, true)
           )
         inputs:
-          pathToPublish: ${{ parameters.projectParentFolderPath }}/${{ parameters.projectFolderName }}/${{ parameters.outputDirectory }}
+          pathToPublish: $(Build.ArtifactStagingDirectory)/deployment-bundle
           artifactName: ${{ parameters.projectFolderName }}

@@ -16,6 +16,10 @@ parameters:
     type: string
     default: wwwroot
 
+  - name: apiDirectory
+    type: string
+    default: ''
+
 jobs:
   - deployment: DeployStaticWebAppJob
     displayName: Deploy to ${{ parameters.environment }}
@@ -24,15 +28,14 @@ jobs:
       runOnce:
         deploy:
           steps:
-            - task: DownloadBuildArtifacts@1
-              displayName: Download Build Artifact
-              inputs:
-                artifactName: ${{ parameters.projectFolderName }}
-                downloadPath: ${{ parameters.projectParentFolderPath }}/${{ parameters.projectFolderName }}
-
             - task: AzureStaticWebApp@0
               displayName: Deploy Static Web App
               inputs:
-                app_location: ${{ parameters.projectParentFolderPath }}/${{ parameters.projectFolderName }}/${{ parameters.projectFolderName }}
-                output_location: ${{ parameters.outputDirectory }}
                 azure_static_web_apps_api_token: ${{ parameters.deploymentToken }}
+                workingDirectory: $(Pipeline.Workspace)/${{ parameters.projectFolderName }}
+                skip_app_build: true
+                skip_api_build: true
+                app_location: ${{ parameters.outputDirectory }}
+                output_location: '.'
+                ${{ if ne(parameters.apiDirectory, '') }}:
+                  api_location: ${{ parameters.apiDirectory }}

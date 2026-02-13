@@ -2,6 +2,9 @@ parameters:
   - name: environment
     type: string
 
+  - name: templateRepoAlias
+    type: string
+
   - name: serviceConnection
     type: string
 
@@ -15,6 +18,10 @@ parameters:
     type: string
     default: iac/entrypoint.ps1
 
+  - name: shouldProvideSqlScript
+    type: boolean
+    default: false
+
 jobs:
   - deployment: DeployInfrastructureJob
     displayName: Deploy to ${{ parameters.environment }}
@@ -24,7 +31,26 @@ jobs:
         deploy:
           steps:
             - checkout: self
+              path: self
               clean: true
+
+            - checkout: templates
+              path: ${{ parameters.templateRepoAlias }}
+              clean: true
+
+            - ${{ if eq(parameters.shouldProvideSqlScript, true) }}:
+              - pwsh: |
+                  $sqlFilePath = "$(Pipeline.Workspace)/${{ parameters.templateRepoAlias }}/pipelines/azure/sql/configure-sql-permissions.ps1"
+                  if (-not (Test-Path -LiteralPath $sqlFilePath)) {
+                    throw "SQL script not found: $sqlFilePath"
+                  }
+
+                  $sqlText = Get-Content -LiteralPath $sqlFilePath -Raw
+                  $sqlBytes = [System.Text.Encoding]::UTF8.GetBytes($sqlText)
+                  $sqlBase64 = [Convert]::ToBase64String($sqlBytes)
+
+                  Write-Host "##vso[task.setvariable variable=SqlScriptBase64]$sqlBase64"
+                displayName: Load SQL script content (Base64)
 
             - task: AzureCLI@2
               displayName: Deploy ${{ parameters.resourceGroup }}
@@ -33,7 +59,11 @@ jobs:
                 azureSubscription: ${{ parameters.serviceConnection }}
                 scriptType: pscore
                 scriptLocation: scriptPath
-                scriptPath: ${{ parameters.entrypointScriptPath }}
+                scriptPath: "$(Pipeline.Workspace)/self/${{ parameters.entrypointScriptPath }}"
+                workingDirectory: "$(Pipeline.Workspace)/self"
                 arguments: >
                   -environment ${{ parameters.environment }}
                   -personalAccessToken ${{ parameters.personalAccessToken }}
+              ${{ if eq(parameters.shouldProvideSqlScript, true) }}:
+                env:
+                  SQL_SCRIPT_BASE64: $(SqlScriptBase64)
