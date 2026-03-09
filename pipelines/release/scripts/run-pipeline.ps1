@@ -14,8 +14,8 @@ $devopsBaseUrl = $env:SYSTEM_COLLECTIONURI
 $projectName = $env:SYSTEM_TEAMPROJECT
 $user = $env:BUILD_REQUESTEDFOR
 $releaseTitle = $env:BUILD_SOURCEVERSIONMESSAGE
-$releaseTag = $env:RELEASETAG
 $repositoryName = $env:PIPELINE_REPOSITORY_NAME
+$templateParametersJson = $env:TEMPLATE_PARAMETERS
 $logicAppPendingReleaseNotificationUrl = $env:LOGIC_APP_PENDING_RELEASE_NOTIFICATION_URL # ume-logic-releaseapprovalnotification from library
 
 if ([string]::IsNullOrWhiteSpace($accessToken)) {
@@ -51,11 +51,13 @@ if ([string]::IsNullOrWhiteSpace($user)) {
 if ([string]::IsNullOrWhiteSpace($releaseTitle)) {
     ThrowError("Release Title is not provided.")
 }
-if ([string]::IsNullOrWhiteSpace($releaseTag)) {
-    ThrowError("Release Tag is not provided.")
-}
 if ([string]::IsNullOrWhiteSpace($repositoryName)) {
     ThrowError("Repository Name is not provided.")
+}
+
+$templateParameters = @{}
+if (-not [string]::IsNullOrWhiteSpace($templateParametersJson)) {
+    $templateParameters = $templateParametersJson | ConvertFrom-Json -AsHashtable
 }
 
 $authenticationHeader = @{
@@ -70,10 +72,10 @@ $getPipelinesUrl = "$baseUrl/build/definitions?repositoryId=$repositoryId&reposi
 $pipelinesResponse = Invoke-RestMethod -Uri $getPipelinesUrl -Headers $authenticationHeader -Method Get
 $pipeline = $pipelinesResponse.value | Where-Object { $_.process.yamlFilename -eq $pipelineFilePath }
 
-Write-Host "Running pipeline '$($pipeline.name)' on commit $commitId with environment $environment"
+Write-Host "Running pipeline '$($pipeline.name)' on commit $commitId with parameters: $templateParametersJson"
 $runPipelineUrl = "$baseUrl/pipelines/$($pipeline.id)/runs?$apiVersion"
 $body = @{
-    resources          = @{
+    resources = @{
         repositories = @{
             self = @{
                 refName = $branch
@@ -81,7 +83,9 @@ $body = @{
             }
         }
     }
-    templateParameters = @{ environment = $environment }
+}
+if ($templateParameters.Count -gt 0) {
+    $body.templateParameters = $templateParameters
 }
 $isSourceTag = -not [string]::IsNullOrWhiteSpace($tag)
 if ($isSourceTag) {
@@ -117,7 +121,7 @@ do {
                     user           = $user
                     repositoryName = $repositoryName
                     releaseTitle   = $releaseTitle
-                    releaseTag     = $releaseTag
+                    releaseTag     = $tag
                 }
                 $jsonBody = $payloadObject | ConvertTo-Json -Depth 10
                 $response = Invoke-RestMethod -Method Post -Uri $logicAppPendingReleaseNotificationUrl -ContentType "application/json" -Body $jsonBody

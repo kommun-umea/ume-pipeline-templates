@@ -8,6 +8,10 @@ parameters:
   - name: pipelineFilePath
     type: string
 
+  - name: templateParameters
+    type: object
+    default: {}
+
   - name: sourceTag
     type: string
     default: ''
@@ -30,6 +34,7 @@ jobs:
           SYSTEM_ACCESSTOKEN: $(System.AccessToken)
           ENVIRONMENT: ${{ parameters.environment }}
           PIPELINE_FILE_PATH: ${{ parameters.pipelineFilePath }}
+          TEMPLATE_PARAMETERS: ${{ convertToJson(parameters.templateParameters) }}
           BUILD_SOURCETAG: ${{ parameters.sourceTag }}
 
       - task: PowerShell@2

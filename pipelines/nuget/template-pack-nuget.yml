@@ -1,0 +1,70 @@
+parameters:
+  - name: templateRepoAlias
+    type: string
+
+  - name: packagePath
+    type: string
+
+  - name: packageName
+    type: string
+
+  - name: projectFolderName
+    type: string
+
+  - name: entrypointProjectName
+    type: string
+
+  - name: isStableRelease
+    type: boolean
+
+  - name: projectParentFolderPath
+    type: string
+    default: src
+
+  - name: buildConfiguration
+    type: string
+    default: Release
+    values:
+      - Debug
+      - Release
+
+  - name: dotnetVersion
+    type: string
+    default: 10.0.x
+
+  - name: shouldTest
+    type: boolean
+    default: true
+
+  - name: shouldPublish
+    type: boolean
+    default: true
+
+jobs:
+  - job: GeneratePackageVersionJob
+    displayName: Generate package version
+    steps:
+      - template: template-generate-package-version.yml
+        parameters:
+          templateRepoAlias: ${{ parameters.templateRepoAlias }}
+          packagePath: ${{ parameters.packagePath }}
+          packageName: ${{ parameters.packageName }}
+          isStableRelease: ${{ parameters.isStableRelease }}
+
+  - job: BuildNugetJob
+    displayName: Build NuGet package
+    dependsOn: GeneratePackageVersionJob
+    condition: not(or(failed(), canceled()))
+    variables:
+      packageVersion: $[ dependencies.GeneratePackageVersionJob.outputs['Task.${{ parameters.packageName }}_PACKAGE_VERSION'] ]
+    steps:
+      - template: template-build-nuget.yml
+        parameters:
+          projectFolderName: ${{ parameters.projectFolderName }}
+          entrypointProjectName: ${{ parameters.entrypointProjectName }}
+          packageVersion: $(packageVersion)
+          projectParentFolderPath: ${{ parameters.projectParentFolderPath }}
+          buildConfiguration: ${{ parameters.buildConfiguration }}
+          dotnetVersion: ${{ parameters.dotnetVersion }}
+          shouldTest: ${{ parameters.shouldTest }}
+          shouldPublish: ${{ parameters.shouldPublish }}

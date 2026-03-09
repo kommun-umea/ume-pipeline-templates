@@ -1,0 +1,109 @@
+parameters:
+  - name: projectFolderName
+    type: string
+
+  - name: entrypointProjectName
+    type: string
+
+  - name: packageVersion
+    type: string
+
+  - name: projectParentFolderPath
+    type: string
+    default: src
+
+  - name: buildConfiguration
+    type: string
+    default: Release
+    values:
+      - Debug
+      - Release
+
+  - name: dotnetVersion
+    type: string
+    default: 10.0.x
+
+  - name: shouldTest
+    type: boolean
+    default: true
+
+  - name: shouldPublish
+    type: boolean
+    default: true
+
+steps:
+  - task: NuGetAuthenticate@1
+    displayName: Authenticate to NuGet
+
+  - task: UseDotNet@2
+    displayName: Backend Use .NET ${{ parameters.dotnetVersion }}
+    inputs:
+      packageType: sdk
+      version: ${{ parameters.dotnetVersion }}
+
+  - task: DotNetCoreCLI@2
+    displayName: Backend Restore
+    inputs:
+      command: restore
+      projects: ${{ parameters.projectParentFolderPath }}/${{ parameters.projectFolderName }}/**/*.csproj
+      feedsToUse: config
+      nugetConfigPath: NuGet.Config
+      verbosityRestore: Minimal
+
+  - task: DotNetCoreCLI@2
+    displayName: Backend Build
+    inputs:
+      command: build
+      projects: ${{ parameters.projectParentFolderPath }}/${{ parameters.projectFolderName }}/**/*.csproj
+      arguments: --no-restore --configuration ${{ parameters.buildConfiguration }}
+
+  - task: DotNetCoreCLI@2
+    displayName: Backend Test
+    condition: |
+      and(
+        succeeded(),
+        eq(${{ parameters.shouldTest }}, true)
+      )
+    inputs:
+      command: test
+      projects: ${{ parameters.projectParentFolderPath }}/${{ parameters.projectFolderName }}/*.Test?(s)/*.csproj
+      arguments: --no-restore --configuration ${{ parameters.buildConfiguration }} --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+      publishTestResults: ${{ parameters.shouldPublish }}
+
+  - task: PublishCodeCoverageResults@2
+    displayName: Publish Code Coverage
+    condition: |
+      and(
+        succeeded(),
+        eq(${{ parameters.shouldTest }}, true),
+        eq(${{ parameters.shouldPublish }}, true)
+      )
+    inputs:
+      codeCoverageTool: Cobertura
+      summaryFileLocation: $(Agent.TempDirectory)/**/coverage.cobertura.xml
+
+  - task: DotNetCoreCLI@2
+    displayName: NuGet Pack
+    condition: |
+      and(
+        succeeded(),
+        eq(${{ parameters.shouldPublish }}, true)
+      )
+    inputs:
+      command: pack
+      packagesToPack: ${{ parameters.projectParentFolderPath }}/${{ parameters.projectFolderName }}/**/${{ parameters.entrypointProjectName }}.csproj
+      configuration: ${{ parameters.buildConfiguration }}
+      outputDir: $(Build.ArtifactStagingDirectory)
+      nobuild: true
+      arguments: /p:PackageVersion=${{ parameters.packageVersion }}
+
+  - task: PublishPipelineArtifact@1
+    displayName: Publish Artifact
+    condition: |
+      and(
+        succeeded(),
+        eq(${{ parameters.shouldPublish }}, true)
+      )
+    inputs:
+      targetPath: $(Build.ArtifactStagingDirectory)
+      artifactName: ${{ parameters.projectFolderName }}

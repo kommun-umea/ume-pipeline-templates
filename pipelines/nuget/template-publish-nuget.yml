@@ -1,0 +1,54 @@
+parameters:
+  - name: templateRepoAlias
+    type: string
+
+  - name: isStableRelease
+    type: boolean
+
+  - name: projectFolderName
+    type: string
+
+  - name: azureArtifactsFeedName
+    type: string
+
+  - name: nugetApiKey
+    type: string
+
+  - name: packageVersionTag
+    type: string
+
+jobs:
+  - deployment: PublishNuGetPackage
+    displayName: Publish NuGet package
+    ${{ if parameters.isStableRelease }}:
+      environment: prod
+    ${{ else }}:
+      environment: dev
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+            - task: NuGetAuthenticate@1
+              displayName: Authenticate to feeds
+
+            - task: DotNetCoreCLI@2
+              displayName: Push to Azure Artifacts
+              inputs:
+                command: push
+                packagesToPush: '$(Pipeline.Workspace)/${{ parameters.projectFolderName }}/*.nupkg'
+                feedPublish: ${{ parameters.azureArtifactsFeedName }}
+
+            - task: DotNetCoreCLI@2
+              displayName: Push to NuGet.org
+              condition: >-
+                and(
+                  not(or(failed(), canceled())),
+                  eq('${{ parameters.isStableRelease }}', 'true')
+                )
+              inputs:
+                command: custom
+                custom: nuget
+                arguments: >
+                  push "$(Pipeline.Workspace)/${{ parameters.projectFolderName }}/*.nupkg"
+                  --api-key ${{ parameters.nugetApiKey }}
+                  --source https://api.nuget.org/v3/index.json

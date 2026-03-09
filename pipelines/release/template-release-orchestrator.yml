@@ -84,6 +84,8 @@ stages:
           templateRepoAlias: ${{ parameters.templateRepoAlias }}
           environment: ${{ parameters.environment }}
           pipelineFilePath: ${{ parameters.deploymentPipelineFilePath }}
+          templateParameters:
+            environment: ${{ parameters.environment }}
           sourceTag: $(releaseTag)
 
   - stage: FinalizeReleaseStage
