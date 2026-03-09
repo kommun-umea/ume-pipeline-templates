@@ -11,6 +11,10 @@ parameters:
   - name: isStableRelease
     type: boolean
 
+  - name: shouldPublish
+    type: boolean
+    default: true
+
 steps:
   - checkout: self
     path: source
@@ -35,6 +39,7 @@ steps:
   - task: PowerShell@2
     displayName: Tag Current Build
     name: TagBuildTask
+    condition: and(succeeded(), eq(${{ parameters.shouldPublish }}, true))
     inputs:
       targetType: filePath
       filePath: $(Pipeline.Workspace)/templates/pipelines/release/scripts/tag-build.ps1

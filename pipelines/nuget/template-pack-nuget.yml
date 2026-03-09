@@ -50,6 +50,7 @@ jobs:
           packagePath: ${{ parameters.packagePath }}
           packageName: ${{ parameters.packageName }}
           isStableRelease: ${{ parameters.isStableRelease }}
+          shouldPublish: ${{ parameters.shouldPublish }}
 
   - job: BuildNugetJob
     displayName: Build NuGet package
