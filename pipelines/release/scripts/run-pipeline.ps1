@@ -102,6 +102,7 @@ Write-Host "Set output variable: PIPELINE_BUILD_ID = '$buildId'"
 
 $pipelineRunUrl = "$baseUrl/pipelines/$($pipeline.id)/runs/$($buildId)?$apiVersion"
 $pendingApprovalsUrl = "$baseUrl/pipelines/approvals?state=pending&$apiVersion"
+$buildTimelineUrl = "$baseUrl/build/builds/$buildId/Timeline?$apiVersion"
 $isApprovalNotified = $false
 do {
     Write-Host "Pipeline is not finished yet. Waiting 10 seconds..."
@@ -112,23 +113,43 @@ do {
         $pipelineRunPendingApproval = $pendingApprovals.value | Where-Object { $_.pipeline.owner.id -eq $buildId }
 
         if ($pipelineRunPendingApproval) {
-            $message = "Pipeline is waiting for approval. Approve it here: $($pipelineRun._links.web.href)"
-            Write-Host "##vso[task.logissue type=warning;]$message" # Information log doesn't exist in DevOps
+            # Check if all in-progress stages are accounted for by pending approvals.
+            # A stage is inProgress when actively running OR blocked on an approval gate.
+            # Stages that haven't been triggered yet (notStarted) are ignored.
+            # If inProgress > pending approvals, some build stages are still running.
+            # Defer notification until all non-deploy stages (builds, validations, DB updates) have completed.
+            # Deploy stages (pending/inProgress while waiting for approval) are excluded from this check.
+            $timeline = Invoke-RestMethod -Uri $buildTimelineUrl -Headers $authenticationHeader
+            $stages = $timeline.records | Where-Object { $_.type -eq 'Stage' }
+            $activeNonDeployStages = @($stages | Where-Object {
+                $_.state -ne 'completed' -and
+                $_.name -notlike 'Deploy*'
+            })
+            $pendingApprovalCount = @($pipelineRunPendingApproval).Count
 
-            if (($environment -eq 'prod') -and ($null -ne $logicAppPendingReleaseNotificationUrl)) {
-                $payloadObject = @{
-                    approvalUrl    = $pipelineRun._links.web.href
-                    user           = $user
-                    repositoryName = $repositoryName
-                    releaseTitle   = $releaseTitle
-                    releaseTag     = $tag
-                }
-                $jsonBody = $payloadObject | ConvertTo-Json -Depth 10
-                $response = Invoke-RestMethod -Method Post -Uri $logicAppPendingReleaseNotificationUrl -ContentType "application/json" -Body $jsonBody
+            if ($activeNonDeployStages.Count -gt 0) {
+                $stageNames = ($activeNonDeployStages | ForEach-Object { $_.name }) -join ', '
+                Write-Host "Pending approvals found ($pendingApprovalCount), but still waiting for: $stageNames. Deferring notification..."
             }
+            else {
+                $message = "Pipeline is waiting for approval ($pendingApprovalCount service(s) ready). Approve it here: $($pipelineRun._links.web.href)"
+                Write-Host "##vso[task.logissue type=warning;]$message" # Information log doesn't exist in DevOps
 
-            Write-Host "Pending approval notification sent."
-            $isApprovalNotified = $true
+                if (($environment -eq 'prod') -and ($null -ne $logicAppPendingReleaseNotificationUrl)) {
+                    $payloadObject = @{
+                        approvalUrl    = $pipelineRun._links.web.href
+                        user           = $user
+                        repositoryName = $repositoryName
+                        releaseTitle   = $releaseTitle
+                        releaseTag     = $tag
+                    }
+                    $jsonBody = $payloadObject | ConvertTo-Json -Depth 10
+                    $response = Invoke-RestMethod -Method Post -Uri $logicAppPendingReleaseNotificationUrl -ContentType "application/json" -Body $jsonBody
+                }
+
+                Write-Host "Pending approval notification sent."
+                $isApprovalNotified = $true
+            }
         }
     }
 
