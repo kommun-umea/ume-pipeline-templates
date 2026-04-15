@@ -1,0 +1,128 @@
+parameters:
+  - name: environment
+    type: string
+
+  - name: templateRepoAlias
+    type: string
+
+  - name: destinationPath
+    type: string
+
+  - name: variableGroup
+    type: string
+
+  - name: projectFolderName
+    type: string
+
+  - name: startupProjectName
+    type: string
+
+  - name: databaseProjectName
+    type: string
+
+  - name: databaseContext
+    type: string
+    default: ''
+
+  - name: projectParentFolderPath
+    type: string
+    default: src
+
+  - name: buildConfiguration
+    type: string
+    default: Release
+    values:
+      - Debug
+      - Release
+
+  - name: dotnetVersion
+    type: string
+    default: 10.0.x
+
+  - name: shouldTest
+    type: boolean
+    default: true
+
+jobs:
+  - deployment: UpdateDatabaseJob
+    displayName: Update Database in ${{ parameters.environment }}
+    environment: ${{ parameters.environment }}
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+            - checkout: self
+              clean: true
+              path: s
+
+            - checkout: ${{ parameters.templateRepoAlias }}
+              path: templates
+
+            - template: ../general/template-build-backend.yml
+              parameters:
+                projectFolderName: ${{ parameters.projectFolderName }}
+                entrypointProjectName: ${{ parameters.startupProjectName }}
+                projectParentFolderPath: ${{ parameters.projectParentFolderPath }}
+                buildConfiguration: ${{ parameters.buildConfiguration }}
+                dotnetVersion: ${{ parameters.dotnetVersion }}
+                shouldTest: ${{ parameters.shouldTest }}
+                shouldPublish: true
+
+            - template: helpers/template-publish-artifact-to-temp-folder.yml
+              parameters:
+                destinationPath: ${{ parameters.destinationPath }}
+                shouldPublish: true
+
+            - task: PowerShell@2
+              displayName: Update appsettings.json
+              inputs:
+                targetType: filePath
+                filePath: $(Pipeline.Workspace)/templates/pipelines/onprem/scripts/update-appsettings.ps1
+              env:
+                SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+                VARIABLE_GROUP: ${{ parameters.variableGroup }}
+                DESTINATION_PATH: ${{ parameters.destinationPath }}/temp/${{ parameters.projectFolderName }}.zip
+
+            - task: DotNetCoreCLI@2
+              displayName: New Tool Manifest
+              inputs:
+                command: custom
+                custom: new
+                arguments: tool-manifest
+
+            - task: DotNetCoreCLI@2
+              displayName: Install dotnet-ef
+              inputs:
+                command: custom
+                custom: tool
+                arguments: install dotnet-ef
+                nugetConfigPath: NuGet.Config
+
+            - task: PowerShell@2
+              displayName: Copy updated appsettings to source
+              inputs:
+                targetType: inline
+                script: |
+                  Add-Type -AssemblyName System.IO.Compression.FileSystem
+                  $zip = [System.IO.Compression.ZipFile]::OpenRead("${{ parameters.destinationPath }}/temp/${{ parameters.projectFolderName }}.zip")
+                  $entry = $zip.Entries | Where-Object { $_.Name -eq "appsettings.json" } | Select-Object -First 1
+                  [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, "${{ parameters.projectParentFolderPath }}/${{ parameters.projectFolderName }}/${{ parameters.startupProjectName }}/appsettings.json", $true)
+                  $zip.Dispose()
+
+            - task: PowerShell@2
+              displayName: Update Database
+              inputs:
+                targetType: inline
+                workingDirectory: ${{ parameters.projectParentFolderPath }}/${{ parameters.projectFolderName }}
+                script: |
+                  $env:ASPNETCORE_ENVIRONMENT = "${{ parameters.environment }}"
+                  $args = @(
+                    "--project", "${{ parameters.databaseProjectName }}",
+                    "--startup-project", "${{ parameters.startupProjectName }}",
+                    "--no-build",
+                    "--configuration", "${{ parameters.buildConfiguration }}"
+                  )
+                  if ("${{ parameters.databaseContext }}" -ne "") {
+                    $args += "--context", "${{ parameters.databaseContext }}"
+                  }
+                  dotnet ef database update @args

@@ -1,0 +1,52 @@
+parameters:
+  - name: hostUrl
+    type: string
+
+  - name: pingEndpoints
+    type: object
+    default: []
+
+  - name: pingType
+    type: string
+    default: Default
+    values:
+      - Default
+      - Cloud
+      - Internal
+      - External
+
+  - name: maxRetries
+    type: number
+    default: 3
+
+  - name: retryDelay
+    type: number
+    default: 5
+
+  - name: certificateSecureFile
+    type: string
+    default: ''
+
+  - name: certificatePassword
+    type: string
+    default: ''
+
+steps:
+  - ${{ if ne(parameters.certificateSecureFile, '') }}:
+      - task: DownloadSecureFile@1
+        name: pingCertificate_${{ parameters.pingType }}
+        displayName: Download ${{ parameters.pingType }} ping certificate
+        inputs:
+          secureFile: ${{ parameters.certificateSecureFile }}
+
+  - ${{ each pingEndpoint in parameters.pingEndpoints }}:
+      - template: template-ping.yml
+        parameters:
+          hostUrl: ${{ parameters.hostUrl }}
+          pingEndpoint: ${{ pingEndpoint }}
+          pingType: ${{ parameters.pingType }}
+          maxRetries: ${{ parameters.maxRetries }}
+          retryDelay: ${{ parameters.retryDelay }}
+          ${{ if ne(parameters.certificateSecureFile, '') }}:
+            certificatePath: $(pingCertificate_${{ parameters.pingType }}.secureFilePath)
+            certificatePassword: ${{ parameters.certificatePassword }}

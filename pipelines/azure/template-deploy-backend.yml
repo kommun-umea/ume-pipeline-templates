@@ -26,6 +26,14 @@ parameters:
     type: number
     default: 3
 
+  - name: certificateSecureFile
+    type: string
+    default: ''
+
+  - name: certificatePassword
+    type: string
+    default: ''
+
 jobs:
   # Deploy with stage slot (blue-green deployment)
   - ${{ if eq(parameters.withStageSlot, true) }}:
@@ -78,13 +86,14 @@ jobs:
         steps:
           - checkout: none
 
-          - ${{ each pingEndpoint in parameters.pingEndpoints }}:
-              - template: ../general/helpers/template-ping.yml
-                parameters:
-                  hostUrl: https://${{ parameters.appName }}-stage.azurewebsites.net
-                  pingEndpoint: ${{ pingEndpoint }}
-                  pingType: Cloud
-                  maxRetries: ${{ parameters.maxPingRetries }}
+          - template: ../general/helpers/template-ping-host.yml
+            parameters:
+              hostUrl: https://${{ parameters.appName }}-stage.azurewebsites.net
+              pingEndpoints: ${{ parameters.pingEndpoints }}
+              pingType: Cloud
+              maxRetries: ${{ parameters.maxPingRetries }}
+              certificateSecureFile: ${{ parameters.certificateSecureFile }}
+              certificatePassword: ${{ parameters.certificatePassword }}
 
       - job: SwapSlotsAndStopStageJob
         dependsOn: PingStageJob
@@ -117,13 +126,14 @@ jobs:
         steps:
           - checkout: none
 
-          - ${{ each pingEndpoint in parameters.pingEndpoints }}:
-              - template: ../general/helpers/template-ping.yml
-                parameters:
-                  hostUrl: https://${{ parameters.appName }}.azurewebsites.net
-                  pingEndpoint: ${{ pingEndpoint }}
-                  pingType: Cloud
-                  maxRetries: ${{ parameters.maxPingRetries }}
+          - template: ../general/helpers/template-ping-host.yml
+            parameters:
+              hostUrl: https://${{ parameters.appName }}.azurewebsites.net
+              pingEndpoints: ${{ parameters.pingEndpoints }}
+              pingType: Cloud
+              maxRetries: ${{ parameters.maxPingRetries }}
+              certificateSecureFile: ${{ parameters.certificateSecureFile }}
+              certificatePassword: ${{ parameters.certificatePassword }}
 
   # Deploy directly to production (no stage slot)
   - ${{ if eq(parameters.withStageSlot, false) }}:
@@ -158,10 +168,11 @@ jobs:
         steps:
           - checkout: none
 
-          - ${{ each pingEndpoint in parameters.pingEndpoints }}:
-              - template: ../general/helpers/template-ping.yml
-                parameters:
-                  hostUrl: https://${{ parameters.appName }}.azurewebsites.net
-                  pingEndpoint: ${{ pingEndpoint }}
-                  pingType: Cloud
-                  maxRetries: ${{ parameters.maxPingRetries }}
+          - template: ../general/helpers/template-ping-host.yml
+            parameters:
+              hostUrl: https://${{ parameters.appName }}.azurewebsites.net
+              pingEndpoints: ${{ parameters.pingEndpoints }}
+              pingType: Cloud
+              maxRetries: ${{ parameters.maxPingRetries }}
+              certificateSecureFile: ${{ parameters.certificateSecureFile }}
+              certificatePassword: ${{ parameters.certificatePassword }}

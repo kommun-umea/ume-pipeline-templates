@@ -13,6 +13,14 @@ parameters:
     type: string
     default: ''
 
+  - name: externalCertificateSecureFile
+    type: string
+    default: ''
+
+  - name: externalCertificatePassword
+    type: string
+    default: ''
+
   - name: pingEndpoints
     type: object
     default: []
@@ -68,20 +76,20 @@ jobs:
           path: ${{ parameters.destinationPath }}
 
       - ${{ if ne(parameters.internalHostUrl, '') }}:
-          - ${{ each pingEndpoint in parameters.pingEndpoints }}:
-              - template: ../general/helpers/template-ping.yml
-                parameters:
-                  hostUrl: ${{ parameters.internalHostUrl }}
-                  pingEndpoint: ${{ pingEndpoint }}
-                  pingType: Internal
+          - template: ../general/helpers/template-ping-host.yml
+            parameters:
+              hostUrl: ${{ parameters.internalHostUrl }}
+              pingEndpoints: ${{ parameters.pingEndpoints }}
+              pingType: Internal
 
       - ${{ if ne(parameters.externalHostUrl, '') }}:
-          - ${{ each pingEndpoint in parameters.pingEndpoints }}:
-              - template: ../general/helpers/template-ping.yml
-                parameters:
-                  hostUrl: ${{ parameters.externalHostUrl }}
-                  pingEndpoint: ${{ pingEndpoint }}
-                  pingType: External
+          - template: ../general/helpers/template-ping-host.yml
+            parameters:
+              hostUrl: ${{ parameters.externalHostUrl }}
+              pingEndpoints: ${{ parameters.pingEndpoints }}
+              pingType: External
+              certificateSecureFile: ${{ parameters.externalCertificateSecureFile }}
+              certificatePassword: ${{ parameters.externalCertificatePassword }}
 
   - job: RollbackDeploymentJob
     displayName: Rollback Deployment
@@ -125,20 +133,20 @@ jobs:
           path: ${{ parameters.destinationPath }}
 
       - ${{ if ne(parameters.internalHostUrl, '') }}:
-          - ${{ each pingEndpoint in parameters.pingEndpoints }}:
-              - template: ../general/helpers/template-ping.yml
-                parameters:
-                  hostUrl: ${{ parameters.internalHostUrl }}
-                  pingEndpoint: ${{ pingEndpoint }}
-                  pingType: Internal
+          - template: ../general/helpers/template-ping-host.yml
+            parameters:
+              hostUrl: ${{ parameters.internalHostUrl }}
+              pingEndpoints: ${{ parameters.pingEndpoints }}
+              pingType: Internal
 
       - ${{ if ne(parameters.externalHostUrl, '') }}:
-          - ${{ each pingEndpoint in parameters.pingEndpoints }}:
-              - template: ../general/helpers/template-ping.yml
-                parameters:
-                  hostUrl: ${{ parameters.externalHostUrl }}
-                  pingEndpoint: ${{ pingEndpoint }}
-                  pingType: External
+          - template: ../general/helpers/template-ping-host.yml
+            parameters:
+              hostUrl: ${{ parameters.externalHostUrl }}
+              pingEndpoints: ${{ parameters.pingEndpoints }}
+              pingType: External
+              certificateSecureFile: ${{ parameters.externalCertificateSecureFile }}
+              certificatePassword: ${{ parameters.externalCertificatePassword }}
 
   - job: BackupDeploymentJob
     displayName: Backup Deployment
@@ -147,7 +155,7 @@ jobs:
       - checkout: none
 
       - powershell: |
-          Write-Host "[Ume]: Adding datetime to deployment zip file name..."
+          Write-Host "Adding datetime to deployment zip file name..."
           $datetime = (Get-Date).ToString('yyyyMMddTHHmmss')
 
           Rename-Item `
