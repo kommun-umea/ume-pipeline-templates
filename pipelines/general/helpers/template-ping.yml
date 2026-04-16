@@ -38,8 +38,8 @@ steps:
       $retryDelay = ${{ parameters.retryDelay }}
       $success = $false
 
-      $certificatePath = "${{ parameters.certificatePath }}"
-      $certificatePassword = "${{ parameters.certificatePassword }}"
+      $certificatePath = $env:CERT_PATH
+      $certificatePassword = $env:CERT_PASSWORD
       $cert = $null
 
       if ($certificatePath -ne '') {
@@ -84,6 +84,9 @@ steps:
         Write-Error "Ping failed after $maxRetries attempts."
       }
     displayName: Ping ${{ parameters.pingType}} ${{ parameters.pingEndpoint }}
+    env:
+      CERT_PATH: ${{ parameters.certificatePath }}
+      CERT_PASSWORD: ${{ parameters.certificatePassword }}
     failOnStderr: true
     condition: |
       and(
