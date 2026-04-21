@@ -42,7 +42,7 @@ steps:
       $certificatePassword = $env:CERT_PASSWORD
       $cert = $null
 
-      if ($certificatePath -ne '') {
+      if (-not [string]::IsNullOrWhiteSpace($certificatePath)) {
         Write-Host "Using client certificate for authentication..."
         $securePassword = ConvertTo-SecureString -String $certificatePassword -Force -AsPlainText
         $cert = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($certificatePath, $securePassword)
