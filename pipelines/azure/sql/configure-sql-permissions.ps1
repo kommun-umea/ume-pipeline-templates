@@ -145,7 +145,7 @@ while ($attempt -lt $maxRetries) {
     }
     catch {
         $errorMessage = $_.Exception.Message
-        if ($errorMessage -match "Server identity does not have Azure Active Directory Readers permission") {
+        if ($errorMessage -match "Server identity does not have the Microsoft Entra Directory Readers permission") {
             $attempt++
 
             if ($attempt -ge $maxRetries) {
