@@ -1,0 +1,127 @@
+parameters:
+  - name: templateRepoAlias
+    type: string
+
+  - name: packagePath
+    type: string
+
+  - name: packageName
+    type: string
+
+  - name: projectFolderName
+    type: string
+
+  - name: entrypointProjectName
+    type: string
+
+  - name: isStableRelease
+    type: boolean
+
+  - name: projectParentFolderPath
+    type: string
+    default: src
+
+  - name: templatesSubPath
+    type: string
+    default: templates
+
+  - name: dotnetVersion
+    type: string
+    default: 10.0.x
+
+  - name: shouldPublish
+    type: boolean
+    default: true
+
+jobs:
+  - job: GeneratePackageVersionJob
+    displayName: Generate package version
+    steps:
+      - template: template-generate-package-version.yml
+        parameters:
+          templateRepoAlias: ${{ parameters.templateRepoAlias }}
+          packagePath: ${{ parameters.packagePath }}
+          packageName: ${{ parameters.packageName }}
+          isStableRelease: ${{ parameters.isStableRelease }}
+          shouldPublish: ${{ parameters.shouldPublish }}
+
+  - job: ValidateAndPackJob
+    displayName: Validate and pack template
+    dependsOn: GeneratePackageVersionJob
+    condition: not(or(failed(), canceled()))
+    variables:
+      packageVersion: $[ dependencies.GeneratePackageVersionJob.outputs['Task.${{ parameters.packageName }}_PACKAGE_VERSION'] ]
+    steps:
+      - task: NuGetAuthenticate@1
+        displayName: Authenticate to NuGet
+
+      - task: UseDotNet@2
+        displayName: Use .NET ${{ parameters.dotnetVersion }}
+        inputs:
+          packageType: sdk
+          version: ${{ parameters.dotnetVersion }}
+
+      - task: PowerShell@2
+        displayName: Validate all templates
+        inputs:
+          targetType: inline
+          pwsh: true
+          script: |
+            $templatesDir = "${{ parameters.projectParentFolderPath }}/${{ parameters.projectFolderName }}/${{ parameters.templatesSubPath }}"
+            if (-not (Test-Path -LiteralPath $templatesDir)) {
+              Write-Host "##vso[task.logissue type=error]Templates directory not found: $templatesDir"
+              exit 1
+            }
+            $scripts = Get-ChildItem -Path $templatesDir -Filter 'validate-package.ps1' -Recurse
+            if ($scripts.Count -eq 0) {
+              Write-Host "##vso[task.logissue type=warning]No validate-package.ps1 scripts found under $templatesDir"
+              exit 0
+            }
+
+            Write-Host "Found $($scripts.Count) validation script(s):" -ForegroundColor Cyan
+            $scripts | ForEach-Object { Write-Host "  - $($_.FullName)" }
+            Write-Host ""
+
+            $failed = @()
+            foreach ($script in $scripts) {
+              Write-Host "=== Running: $($script.FullName) ===" -ForegroundColor Yellow
+              pwsh -File $script.FullName
+              if ($LASTEXITCODE -ne 0) {
+                $failed += $script.FullName
+              }
+              Write-Host ""
+            }
+
+            if ($failed.Count -gt 0) {
+              Write-Host "Failed validation scripts:" -ForegroundColor Red
+              $failed | ForEach-Object { Write-Host "  - $_" -ForegroundColor Red }
+              exit 1
+            }
+
+            Write-Host "All validation scripts passed." -ForegroundColor Green
+
+      - task: DotNetCoreCLI@2
+        displayName: NuGet Pack
+        condition: |
+          and(
+            succeeded(),
+            eq(${{ parameters.shouldPublish }}, true)
+          )
+        inputs:
+          command: pack
+          packagesToPack: ${{ parameters.projectParentFolderPath }}/${{ parameters.projectFolderName }}/**/${{ parameters.entrypointProjectName }}.csproj
+          configuration: Release
+          outputDir: $(Build.ArtifactStagingDirectory)
+          nobuild: true
+          arguments: /p:PackageVersion=$(packageVersion)
+
+      - task: PublishPipelineArtifact@1
+        displayName: Publish Artifact
+        condition: |
+          and(
+            succeeded(),
+            eq(${{ parameters.shouldPublish }}, true)
+          )
+        inputs:
+          targetPath: $(Build.ArtifactStagingDirectory)
+          artifactName: ${{ parameters.projectFolderName }}
