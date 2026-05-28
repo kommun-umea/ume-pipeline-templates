@@ -60,7 +60,7 @@ jobs:
           Contents: '**'
           TargetFolder: $(Build.ArtifactStagingDirectory)/deployment-bundle/${{ parameters.apiDirectory }}
 
-      - task: PublishBuildArtifacts@1
+      - task: PublishPipelineArtifact@1
         displayName: Publish Bundled Build Artifact
         condition: |
           and(
@@ -68,5 +68,5 @@ jobs:
             eq(${{ parameters.shouldPublish }}, true)
           )
         inputs:
-          pathToPublish: $(Build.ArtifactStagingDirectory)/deployment-bundle
+          targetPath: $(Build.ArtifactStagingDirectory)/deployment-bundle
           artifactName: ${{ parameters.projectFolderName }}

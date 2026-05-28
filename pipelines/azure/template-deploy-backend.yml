@@ -60,13 +60,11 @@ jobs:
           runOnce:
             deploy:
               steps:
-                - task: DownloadBuildArtifacts@1
+                - task: DownloadPipelineArtifact@2
                   displayName: Download the build artifacts
                   inputs:
-                    buildType: current
-                    downloadType: single
-                    artifactName: ${{ parameters.projectFolderName }}
-                    downloadPath: $(System.DefaultWorkingDirectory)
+                    artifact: ${{ parameters.projectFolderName }}
+                    path: $(System.DefaultWorkingDirectory)
 
                 - task: AzureRmWebAppDeployment@4
                   displayName: Deploy to Stage
@@ -144,13 +142,11 @@ jobs:
           runOnce:
             deploy:
               steps:
-                - task: DownloadBuildArtifacts@1
+                - task: DownloadPipelineArtifact@2
                   displayName: Download the build artifacts
                   inputs:
-                    buildType: current
-                    downloadType: single
-                    artifactName: ${{ parameters.projectFolderName }}
-                    downloadPath: $(System.DefaultWorkingDirectory)
+                    artifact: ${{ parameters.projectFolderName }}
+                    path: $(System.DefaultWorkingDirectory)
 
                 - task: AzureRmWebAppDeployment@4
                   displayName: Deploy to Production

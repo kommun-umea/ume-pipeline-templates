@@ -42,7 +42,7 @@ jobs:
           shouldTest: ${{ parameters.shouldTest }}
           shouldPublish: ${{ parameters.shouldPublish }}
 
-      - task: PublishBuildArtifacts@1
+      - task: PublishPipelineArtifact@1
         displayName: Publish Artifact
         condition: |
           and(
@@ -50,5 +50,5 @@ jobs:
             eq(${{ parameters.shouldPublish }}, true)
           )
         inputs:
-          PathtoPublish: $(Build.ArtifactStagingDirectory)
-          ArtifactName: ${{ parameters.projectFolderName }}
+          targetPath: $(Build.ArtifactStagingDirectory)
+          artifactName: ${{ parameters.projectFolderName }}
