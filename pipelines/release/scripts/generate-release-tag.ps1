@@ -3,7 +3,8 @@ $ErrorActionPreference = 'Stop'
 
 $accessToken = $env:SYSTEM_ACCESSTOKEN
 $ticketIdsString = $env:TICKET_IDS
-$buildId = $env:BUILD_BUILDID
+$repositoryId = $env:BUILD_REPOSITORY_ID
+$commitId = $env:BUILD_SOURCEVERSION
 $devopsBaseUrl = $env:SYSTEM_COLLECTIONURI
 $projectName = $env:SYSTEM_TEAMPROJECT
 
@@ -13,8 +14,11 @@ if ([string]::IsNullOrWhiteSpace($accessToken)) {
 if ([string]::IsNullOrWhiteSpace($ticketIdsString)) {
     ThrowError("Ticket IDs are not provided.")
 }
-if ([string]::IsNullOrWhiteSpace($buildId)) {
-    ThrowError("Build ID is not provided.")
+if ([string]::IsNullOrWhiteSpace($repositoryId)) {
+    ThrowError("Repository ID is not provided.")
+}
+if ([string]::IsNullOrWhiteSpace($commitId)) {
+    ThrowError("Commit ID is not provided.")
 }
 if ([string]::IsNullOrWhiteSpace($devopsBaseUrl)) {
     ThrowError("DevOps Base URL is not provided.")
@@ -38,11 +42,11 @@ $workItemTypeOrderMap = @{
 }
 $ticketIds = [int[]]($ticketIdsString -split ';')
 
-$pipelineRunUrl = "$baseUrl/build/builds/$($buildId)?$apiVersion"
-$pipelineRun = Invoke-RestMethod -Uri $pipelineRunUrl -Headers $authenticationHeader -Method Get
-$pipelineRunStartTimeUtc = [DateTime]::Parse($pipelineRun.startTime)
+$commitUrl = "$baseUrl/git/repositories/$repositoryId/commits/$($commitId)?$apiVersion"
+$commit = Invoke-RestMethod -Uri $commitUrl -Headers $authenticationHeader -Method Get
+$commitDateUtc = [DateTime]::Parse($commit.committer.date)
 $localTimeZone = [System.TimeZoneInfo]::FindSystemTimeZoneById("Europe/Stockholm")
-$pipelineRunStartTime = [System.TimeZoneInfo]::ConvertTime($pipelineRunStartTimeUtc, $localTimeZone)
+$commitDate = [System.TimeZoneInfo]::ConvertTime($commitDateUtc, $localTimeZone)
 
 $workItemsBatchUri = "$baseUrl/wit/workitemsbatch?$apiVersion"
 $body = @{
@@ -71,7 +75,7 @@ $sortedWorkItems | ForEach-Object {
     Write-Host " - $($_.id) $($_.type)"
 }
 
-$releaseTagDate = $pipelineRunStartTime.ToString("yyMMdd'T'HHmm")
+$releaseTagDate = $commitDate.ToString("yyMMdd'T'HHmm")
 $releaseTagTicketId = $sortedWorkItems[0].id
 $releaseTag = "release/v$releaseTagDate-$releaseTagTicketId"
 
