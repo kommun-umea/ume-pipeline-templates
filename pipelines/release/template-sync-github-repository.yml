@@ -11,7 +11,7 @@ parameters:
 
 - name: organization
   type: string
-  default: kommun-umea
+  default: umea-kommun
 
 - name: repository
   type: string

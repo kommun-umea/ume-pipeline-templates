@@ -34,10 +34,6 @@ resources:
       ref: refs/tags/release/v251014T0947-14671 # Latest release tag (any branch/tag can be referenced)
 ```
 
-### Template Repository
-
-For a complete working example, see the [ume-rg-template](https://github.com/kommun-umea/ume-rg-template) repository which demonstrates how to use these pipeline templates in a real project.
-
 ### Example: Building and Deploying a Backend Service
 
 ```yaml
