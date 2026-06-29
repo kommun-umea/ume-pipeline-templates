@@ -60,11 +60,13 @@ jobs:
           runOnce:
             deploy:
               steps:
+                - download: none
+
                 - task: DownloadPipelineArtifact@2
                   displayName: Download the build artifacts
                   inputs:
                     artifact: ${{ parameters.projectFolderName }}
-                    path: $(System.DefaultWorkingDirectory)
+                    path: $(Pipeline.Workspace)/${{ parameters.projectFolderName }}
 
                 - task: AzureRmWebAppDeployment@4
                   displayName: Deploy to Stage
@@ -74,7 +76,7 @@ jobs:
                     deployToSlotOrASE: true
                     ResourceGroupName: ${{ parameters.resourceGroup }}
                     SlotName: stage
-                    packageForLinux: $(System.DefaultWorkingDirectory)/${{ parameters.projectFolderName }}/${{ parameters.projectFolderName }}.zip
+                    packageForLinux: $(Pipeline.Workspace)/${{ parameters.projectFolderName }}/${{ parameters.projectFolderName }}.zip
                     enableCustomDeployment: true
                     DeploymentType: runFromZip
 
@@ -142,11 +144,13 @@ jobs:
           runOnce:
             deploy:
               steps:
+                - download: none
+
                 - task: DownloadPipelineArtifact@2
                   displayName: Download the build artifacts
                   inputs:
                     artifact: ${{ parameters.projectFolderName }}
-                    path: $(System.DefaultWorkingDirectory)
+                    path: $(Pipeline.Workspace)/${{ parameters.projectFolderName }}
 
                 - task: AzureRmWebAppDeployment@4
                   displayName: Deploy to Production
@@ -154,7 +158,7 @@ jobs:
                     azureSubscription: ${{ parameters.azureSubscription }}
                     WebAppName: ${{ parameters.appName }}
                     ResourceGroupName: ${{ parameters.resourceGroup }}
-                    packageForLinux: $(System.DefaultWorkingDirectory)/${{ parameters.projectFolderName }}/${{ parameters.projectFolderName }}.zip
+                    packageForLinux: $(Pipeline.Workspace)/${{ parameters.projectFolderName }}/${{ parameters.projectFolderName }}.zip
                     enableCustomDeployment: true
                     DeploymentType: runFromZip
 
